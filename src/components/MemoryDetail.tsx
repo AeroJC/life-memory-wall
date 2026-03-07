@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, Plus, Image, BookOpen, Camera } from 'lucide-react'
-import { useState } from 'react'
+import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X } from 'lucide-react'
+import { useState, useRef } from 'react'
 import { Memory, SubStory } from '../types'
+import { uploadMultipleImages } from '../cloudinary'
 
 interface Props {
   memory: Memory
@@ -30,6 +31,9 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory }: Props) 
   const [newTitle, setNewTitle] = useState('')
   const [newContent, setNewContent] = useState('')
   const [newType, setNewType] = useState<'text' | 'photo' | 'photos'>('text')
+  const [newPhotos, setNewPhotos] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const substories = memory.substories || []
 
@@ -49,11 +53,12 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory }: Props) 
       title: newTitle.trim() || undefined,
       content: newType === 'text' ? newContent.trim() : undefined,
       caption: newType !== 'text' ? newContent.trim() : undefined,
-      photos: newType !== 'text' ? [] : undefined,
+      photos: newType !== 'text' ? newPhotos : undefined,
     }
     onAddSubstory(memory.id, substory)
     setNewTitle('')
     setNewContent('')
+    setNewPhotos([])
     setShowAddForm(false)
   }
 
@@ -61,84 +66,100 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory }: Props) 
     .filter((s) => s.type === 'photo' || s.type === 'photos')
     .map((s) => ({ title: s.title || '', caption: s.caption || '', date: s.date }))
 
+  const coverPhoto = memory.photos && memory.photos.length > 0 ? memory.photos[0] : null
+
   return (
     <div className="h-full flex flex-col">
-      {/* Header — no card, just content on the wall */}
-      <div className="px-8 pt-8 pb-6 flex-shrink-0">
-        <motion.h2
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="font-serif text-4xl md:text-5xl text-warmDark leading-tight mb-3"
-        >
-          {memory.title}
-        </motion.h2>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="flex flex-wrap items-center gap-4 mb-4"
-        >
-          <span className="font-handwriting text-xl text-warmDark/55">
-            {formatDateFull(memory.date)}
-            {memory.endDate && ` \u2014 ${formatDateFull(memory.endDate)}`}
-          </span>
-          {memory.location && (
-            <span className="flex items-center gap-1 text-warmDark/40 text-sm">
-              <MapPin className="w-3.5 h-3.5" />
-              {memory.location}
-            </span>
-          )}
-        </motion.div>
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.15 }}
-          className="font-sans text-base text-warmDark/65 leading-relaxed max-w-2xl"
-        >
-          {memory.story}
-        </motion.p>
-
-        {/* Tabs — subtle, on the wall */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="flex gap-6 mt-8 border-b border-warmMid/10"
-        >
-          <button
-            onClick={() => setActiveTab('timeline')}
-            className={`flex items-center gap-2 pb-3 text-sm transition-all border-b-2 -mb-px ${
-              activeTab === 'timeline'
-                ? 'border-gold text-warmDark'
-                : 'border-transparent text-warmDark/40 hover:text-warmDark/55'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            Stories
-            {substories.length > 0 && (
-              <span className="text-xs bg-gold/15 text-gold px-1.5 py-0.5 rounded-full">
-                {substories.length}
+      {/* Header — cover photo if available, plain otherwise */}
+      {coverPhoto ? (
+        <div className="flex-shrink-0 relative h-44 overflow-hidden">
+          <img src={coverPhoto} alt={memory.title} className="w-full h-full object-cover" />
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10" />
+          {/* Tab toggle — top right */}
+          <div className="absolute top-3 right-3 flex gap-1">
+            <button
+              onClick={() => setActiveTab('timeline')}
+              title="Stories"
+              className={`p-1.5 rounded-lg backdrop-blur-sm transition-all ${activeTab === 'timeline' ? 'bg-white/30 text-white' : 'text-white/60 hover:text-white/90'}`}
+            >
+              <BookOpen className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setActiveTab('photos')}
+              title="Photos"
+              className={`p-1.5 rounded-lg backdrop-blur-sm transition-all ${activeTab === 'photos' ? 'bg-white/30 text-white' : 'text-white/60 hover:text-white/90'}`}
+            >
+              <Camera className="w-4 h-4" />
+            </button>
+          </div>
+          {/* Text overlaid at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 px-5 pb-4">
+            <h2 className="font-serif text-lg text-white leading-snug drop-shadow">{memory.title}</h2>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="font-handwriting text-xs text-white/80">
+                {formatDateFull(memory.date)}
+                {memory.endDate && ` — ${formatDateFull(memory.endDate)}`}
               </span>
+              {memory.location && (
+                <span className="flex items-center gap-1 text-white/65 text-xs">
+                  <MapPin className="w-3 h-3" />
+                  {memory.location}
+                </span>
+              )}
+            </div>
+            {memory.story && (
+              <p className="font-sans text-xs text-white/70 leading-relaxed mt-1 line-clamp-2">
+                {memory.story}
+              </p>
             )}
-          </button>
-          <button
-            onClick={() => setActiveTab('photos')}
-            className={`flex items-center gap-2 pb-3 text-sm transition-all border-b-2 -mb-px ${
-              activeTab === 'photos'
-                ? 'border-gold text-warmDark'
-                : 'border-transparent text-warmDark/40 hover:text-warmDark/55'
-            }`}
-          >
-            <Camera className="w-4 h-4" />
-            Photos
-          </button>
-        </motion.div>
-      </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-shrink-0 px-5 pt-4 pb-3 border-b border-warmMid/10">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-serif text-base text-warmDark leading-snug">{memory.title}</h2>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <span className="font-handwriting text-xs text-warmDark/55">
+                  {formatDateFull(memory.date)}
+                  {memory.endDate && ` — ${formatDateFull(memory.endDate)}`}
+                </span>
+                {memory.location && (
+                  <span className="flex items-center gap-1 text-warmDark/40 text-xs">
+                    <MapPin className="w-3 h-3" />
+                    {memory.location}
+                  </span>
+                )}
+              </div>
+              {memory.story && (
+                <p className="font-sans text-xs text-warmDark/60 leading-relaxed mt-1.5 line-clamp-2">
+                  {memory.story}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-1 flex-shrink-0 mt-0.5">
+              <button
+                onClick={() => setActiveTab('timeline')}
+                title="Stories"
+                className={`p-1.5 rounded-lg transition-all ${activeTab === 'timeline' ? 'bg-gold/20 text-warmDark' : 'text-warmDark/35 hover:text-warmDark/55'}`}
+              >
+                <BookOpen className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setActiveTab('photos')}
+                title="Photos"
+                className={`p-1.5 rounded-lg transition-all ${activeTab === 'photos' ? 'bg-gold/20 text-warmDark' : 'text-warmDark/35 hover:text-warmDark/55'}`}
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Scrollable content — open on the wall */}
-      <div className="flex-1 overflow-y-auto px-8 py-6">
+      {/* Stories — scrollable, starts strictly below header */}
+      <div className="flex-1 overflow-y-auto px-5 py-4">
         <AnimatePresence mode="wait">
           {activeTab === 'timeline' ? (
             <motion.div
@@ -153,7 +174,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory }: Props) 
                   <p className="font-sans text-sm text-warmDark/30">Add moments from this memory</p>
                 </div>
               ) : (
-                <div className="relative max-w-2xl">
+                <div className="relative">
                   {/* Flowing timeline line */}
                   <div className="absolute left-[15px] top-4 bottom-4 w-px bg-gradient-to-b from-gold/25 via-coral/15 to-teal/15" />
 
@@ -198,45 +219,38 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory }: Props) 
                               {/* Single photo */}
                               {sub.type === 'photo' && (
                                 <div>
-                                  {sub.title && (
-                                    <h4 className="font-serif text-lg text-warmDark mb-3">
-                                      {sub.title}
-                                    </h4>
+                                  {sub.title && <h4 className="font-serif text-lg text-warmDark mb-3">{sub.title}</h4>}
+                                  {sub.photos && sub.photos.length > 0 ? (
+                                    <img src={sub.photos[0]} alt="" className="w-full rounded-2xl object-cover max-h-64" />
+                                  ) : (
+                                    <div className={`w-full h-48 rounded-2xl bg-gradient-to-br ${storyGradients[idx % storyGradients.length]} flex items-center justify-center border border-white/40`}>
+                                      <Image className="w-10 h-10 text-warmDark/25" />
+                                    </div>
                                   )}
-                                  <div className={`w-full h-48 rounded-2xl bg-gradient-to-br ${storyGradients[idx % storyGradients.length]} flex items-center justify-center border border-white/40`}>
-                                    <Image className="w-10 h-10 text-warmDark/25" />
-                                  </div>
-                                  {sub.caption && (
-                                    <p className="font-sans text-sm text-warmDark/55 italic mt-3 leading-relaxed">
-                                      {sub.caption}
-                                    </p>
-                                  )}
+                                  {sub.caption && <p className="font-sans text-sm text-warmDark/55 italic mt-3 leading-relaxed">{sub.caption}</p>}
                                 </div>
                               )}
 
                               {/* Photo grid */}
                               {sub.type === 'photos' && (
                                 <div>
-                                  {sub.title && (
-                                    <h4 className="font-serif text-lg text-warmDark mb-3">
-                                      {sub.title}
-                                    </h4>
+                                  {sub.title && <h4 className="font-serif text-lg text-warmDark mb-3">{sub.title}</h4>}
+                                  {sub.photos && sub.photos.length > 0 ? (
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {sub.photos.map((url, n) => (
+                                        <img key={n} src={url} alt="" className="rounded-xl object-cover aspect-square w-full" />
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {[0, 1, 2, 3].map((n) => (
+                                        <div key={n} className={`h-28 rounded-xl bg-gradient-to-br ${storyGradients[(idx + n) % storyGradients.length]} flex items-center justify-center border border-white/40`}>
+                                          <Image className="w-6 h-6 text-warmDark/20" />
+                                        </div>
+                                      ))}
+                                    </div>
                                   )}
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {[0, 1, 2, 3].map((n) => (
-                                      <div
-                                        key={n}
-                                        className={`h-28 rounded-xl bg-gradient-to-br ${storyGradients[(idx + n) % storyGradients.length]} flex items-center justify-center border border-white/40`}
-                                      >
-                                        <Image className="w-6 h-6 text-warmDark/20" />
-                                      </div>
-                                    ))}
-                                  </div>
-                                  {sub.caption && (
-                                    <p className="font-sans text-sm text-warmDark/55 italic mt-3 leading-relaxed">
-                                      {sub.caption}
-                                    </p>
-                                  )}
+                                  {sub.caption && <p className="font-sans text-sm text-warmDark/55 italic mt-3 leading-relaxed">{sub.caption}</p>}
                                 </div>
                               )}
 
@@ -254,13 +268,13 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory }: Props) 
               )}
 
               {/* Add moment */}
-              <div className="max-w-2xl mt-8">
+              <div className="mt-8">
                 {!showAddForm ? (
                   <motion.button
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
                     onClick={() => setShowAddForm(true)}
-                    className="w-full py-4 border-2 border-dashed border-warmMid/10 rounded-2xl text-warmDark/35 hover:border-gold/30 hover:text-warmDark/50 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-4 border-2 border-dashed border-warmMid/30 rounded-2xl text-warmDark/60 hover:border-gold/50 hover:text-warmDark/80 transition-all flex items-center justify-center gap-2"
                   >
                     <Plus className="w-4 h-4" />
                     <span className="font-handwriting text-lg">Add a moment</span>
@@ -311,9 +325,62 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory }: Props) 
                     />
 
                     {newType !== 'text' && (
-                      <div className="border-2 border-dashed border-warmMid/10 rounded-xl p-6 text-center mb-4 hover:border-gold/25 transition-colors cursor-pointer">
-                        <Image className="w-7 h-7 text-warmDark/30 mx-auto mb-1" />
-                        <p className="text-warmDark/35 text-sm">Tap to add photos</p>
+                      <div className="mb-4">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple={newType === 'photos'}
+                          className="hidden"
+                          onChange={async (e) => {
+                            const files = Array.from(e.target.files || [])
+                            if (files.length === 0) return
+                            setUploading(true)
+                            try {
+                              const urls = await uploadMultipleImages(files)
+                              setNewPhotos((prev) => [...prev, ...urls])
+                            } catch {
+                              alert('Failed to upload images. Please try again.')
+                            } finally {
+                              setUploading(false)
+                              if (fileInputRef.current) fileInputRef.current.value = ''
+                            }
+                          }}
+                        />
+                        {newPhotos.length > 0 && (
+                          <div className="grid grid-cols-3 gap-2 mb-3">
+                            {newPhotos.map((url, i) => (
+                              <div key={i} className="relative group aspect-square rounded-xl overflow-hidden">
+                                <img src={url} alt="" className="w-full h-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => setNewPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                                  className="absolute top-1 right-1 w-6 h-6 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="w-3.5 h-3.5 text-white" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploading}
+                          className="w-full border-2 border-dashed border-warmMid/10 rounded-xl p-6 text-center hover:border-gold/25 transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {uploading ? (
+                            <div className="flex items-center justify-center gap-2 text-warmDark/50">
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                              <span className="text-sm">Uploading...</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2 text-warmDark/35">
+                              <Upload className="w-5 h-5" />
+                              <span className="text-sm">Tap to add photos</span>
+                            </div>
+                          )}
+                        </button>
                       </div>
                     )}
 

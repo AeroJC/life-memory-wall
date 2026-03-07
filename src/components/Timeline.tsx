@@ -16,6 +16,8 @@ export default function Timeline() {
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null)
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | null>(null)
 
+  const [showMembers, setShowMembers] = useState(false)
+
   const { scrollYProgress } = useScroll()
   const pathLength = useTransform(scrollYProgress, [0, 1], [0, 1])
 
@@ -68,45 +70,95 @@ export default function Timeline() {
     }
   }
 
+  // Shared members panel content
+  const MembersPanel = (
+    <>
+      <div className="fixed inset-0 z-40" onClick={() => setShowMembers(false)} />
+      <div className="absolute right-0 top-9 z-50 glass rounded-2xl p-4 w-72 shadow-lg max-h-[70vh] overflow-y-auto">
+        <p className="font-serif text-sm text-warmDark mb-3">Members</p>
+        <ul className="space-y-2">
+          {space.membersList.filter((m) => m.status === 'active').map((m) => (
+            <li key={m.userId} className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-lavender/60 to-peach/60 flex items-center justify-center text-xs font-serif text-warmDark flex-shrink-0">
+                {m.name[0]}
+              </div>
+              <span className="font-sans text-sm text-warmDark/80 flex-1">{m.name}{m.userId === currentUser?.id && <span className="text-warmDark/40 ml-1 text-xs">(you)</span>}</span>
+              {m.role === 'owner' && <span className="text-xs text-gold">owner</span>}
+              {m.role === 'admin' && <span className="text-xs text-teal">admin</span>}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
+  )
+
   return (
     <div className="min-h-screen gradient-bg relative">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="sticky top-0 z-30 px-4 py-4"
-      >
-        <div className="glass rounded-2xl px-5 py-3 max-w-6xl mx-auto flex items-center justify-between">
+
+      {/* ── DETAIL MODE: slim sticky header ── */}
+      {isDetailOpen && (
+        <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-2">
           <button
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              goBack()
-            }}
-            className="flex items-center gap-2 text-warmDark/60 hover:text-warmDark transition-colors cursor-pointer"
             type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); goBack() }}
+            className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-warmDark/60 hover:text-warmDark transition-colors shadow-sm"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="font-sans text-sm">
-              {isDetailOpen ? 'Timeline' : 'Spaces'}
-            </span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="font-sans text-xs">Timeline</span>
           </button>
-          <div className="text-center">
-            <h2 className="font-serif text-lg text-warmDark flex items-center gap-2">
-              <span>{space.coverEmoji}</span>
-              {space.title}
-            </h2>
-          </div>
-          <div className="flex items-center gap-1 text-warmDark/50">
-            {space.type === 'group' && (
-              <>
-                <Users className="w-4 h-4" />
-                <span className="text-xs">{space.membersList.filter((m) => m.status === 'active').length}</span>
-              </>
-            )}
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMembers((v) => !v)}
+              className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-warmDark/60 hover:text-warmDark transition-colors shadow-sm"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span className="text-xs font-sans">{space.membersList.filter((m) => m.status === 'active').length}</span>
+            </button>
+            {showMembers && MembersPanel}
           </div>
         </div>
-      </motion.div>
+      )}
+
+      {/* ── NORMAL MODE: full sticky header ── */}
+      {!isDetailOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="sticky top-0 z-30 px-4 py-4"
+        >
+          <div className="glass rounded-2xl px-5 py-3 max-w-6xl mx-auto flex items-center justify-between">
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); goBack() }}
+              className="flex items-center gap-2 text-warmDark/60 hover:text-warmDark transition-colors cursor-pointer"
+              type="button"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="font-sans text-sm">Spaces</span>
+            </button>
+            <div className="text-center">
+              <h2 className="font-serif text-lg text-warmDark flex items-center gap-2">
+                <span>{space.coverEmoji}</span>
+                {space.title}
+              </h2>
+            </div>
+            <div className="relative flex items-center gap-1 text-warmDark/50">
+              {space.type === 'group' && (
+                <button
+                  type="button"
+                  onClick={() => setShowMembers((v) => !v)}
+                  className="flex items-center gap-1 hover:text-warmDark transition-colors cursor-pointer"
+                >
+                  <Users className="w-4 h-4" />
+                  <span className="text-xs">{space.membersList.filter((m) => m.status === 'active').length}</span>
+                </button>
+              )}
+              {showMembers && space.type === 'group' && MembersPanel}
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Space description - only when no detail open */}
       {!isDetailOpen && (
@@ -127,7 +179,7 @@ export default function Timeline() {
       )}
 
       {/* Main content */}
-      <div className="max-w-7xl mx-auto px-4 pb-40 pt-4">
+      <div className={`max-w-7xl mx-auto px-4 ${isDetailOpen ? 'pt-0 pb-0' : 'pb-40 pt-4'}`}>
         <div className="flex gap-6 relative">
 
           {/* LEFT: Timeline list */}
@@ -231,8 +283,8 @@ export default function Timeline() {
                     />
 
                     {/* Card wrapper */}
-                    <div className={`md:w-[45%] ml-12 md:ml-0 ${
-                      side === 'left' ? 'md:mr-auto md:pr-8' : 'md:ml-auto md:pl-8'
+                    <div className={`md:w-[48%] ml-12 md:ml-0 ${
+                      side === 'left' ? 'md:mr-auto' : 'md:ml-auto'
                     }`}>
                       <MemoryCard
                         memory={memory}
@@ -259,7 +311,7 @@ export default function Timeline() {
 
             {sortedMemories.length > 0 && !isDetailOpen && (
               <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center pt-16">
-                <p className="font-handwriting text-xl text-warmDark/40">...and the story continues</p>
+                <p className="font-handwriting text-xl text-warmDark/65">...and the story continues</p>
               </motion.div>
             )}
           </div>
@@ -273,7 +325,7 @@ export default function Timeline() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 30 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-                className="flex-1 hidden md:block sticky top-24 h-[calc(100vh-7rem)] overflow-hidden"
+                className="flex-1 hidden md:block sticky top-11 h-[calc(100vh-44px)] overflow-hidden"
               >
                 <MemoryDetail
                   memory={selectedMemory}
@@ -308,11 +360,13 @@ export default function Timeline() {
         </div>
       </div>
 
-      {/* Floating nav */}
-      <FloatingNav
-        onCreateClick={() => { setEditingMemory(null); setShowCreate(true) }}
-        onHomeClick={() => setActiveSpace(null)}
-      />
+      {/* Floating nav — hidden in detail view */}
+      {!isDetailOpen && (
+        <FloatingNav
+          onCreateClick={() => { setEditingMemory(null); setShowCreate(true) }}
+          onHomeClick={() => setActiveSpace(null)}
+        />
+      )}
 
       {/* Create/Edit modal */}
       <CreateMemoryModal

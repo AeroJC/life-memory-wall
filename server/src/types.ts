@@ -18,18 +18,9 @@ export interface Memory {
   location?: string
   tags?: string[]
   reactions?: Record<string, number>
-  comments?: Comment[]
-  storylineId?: string
   substories?: SubStory[]
   visibleTo?: string[]
   createdBy?: string
-}
-
-export interface Comment {
-  id: string
-  author: string
-  text: string
-  date: string
 }
 
 export interface JoinRequest {

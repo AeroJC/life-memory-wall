@@ -58,9 +58,24 @@ export default function MemoryCard({ memory, index, side, onDelete, onReact, onE
       >
         {/* Photo area */}
         <div className="w-full h-48 rounded-xl overflow-hidden mb-4 relative">
-          <div className={`w-full h-full ${gradients[index % 4]} flex items-center justify-center`}>
-            <span className="text-6xl opacity-50">{getEmojiForTag(memory.tags?.[0])}</span>
-          </div>
+          {memory.photos && memory.photos.length > 0 ? (
+            <>
+              <img
+                src={memory.photos[0]}
+                alt={memory.title}
+                className="w-full h-full object-cover"
+              />
+              {memory.photos.length > 1 && (
+                <div className="absolute bottom-2 right-2 glass rounded-full px-2 py-0.5">
+                  <span className="text-xs font-sans text-warmDark/70">+{memory.photos.length - 1}</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className={`w-full h-full ${gradients[index % 4]} flex items-center justify-center`}>
+              <span className="text-6xl opacity-50">{getEmojiForTag(memory.tags?.[0])}</span>
+            </div>
+          )}
           <div className="absolute top-3 right-3 glass rounded-full px-3 py-1">
             <span className="font-handwriting text-sm text-warmDark">{formatDate(memory.date)}</span>
           </div>

@@ -1,0 +1,85 @@
+const BASE_URL = 'http://localhost:3001/api'
+
+function getToken(): string | null {
+  return localStorage.getItem('token')
+}
+
+export function setToken(token: string) {
+  localStorage.setItem('token', token)
+}
+
+export function clearToken() {
+  localStorage.removeItem('token')
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getToken()
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  })
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error || `Request failed: ${res.status}`)
+  }
+
+  return res.json()
+}
+
+// Auth
+export const api = {
+  login: (data: { id?: string; email?: string; phone?: string; name?: string; password?: string }) =>
+    request<{ user: any; token: string }>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+
+  signup: (data: { name: string; email: string; password: string }) =>
+    request<{ user: any; token: string }>('/auth/signup', { method: 'POST', body: JSON.stringify(data) }),
+
+  getUsers: () =>
+    request<any[]>('/auth/users'),
+
+  // Spaces
+  getSpaces: () =>
+    request<any[]>('/spaces'),
+
+  getSpace: (id: string) =>
+    request<any>(`/spaces/${id}`),
+
+  createSpace: (data: { title: string; coverEmoji: string; type: string; description?: string }) =>
+    request<any>('/spaces', { method: 'POST', body: JSON.stringify(data) }),
+
+  joinByCode: (code: string) =>
+    request<{ success: boolean; spaceName: string }>('/spaces/join', { method: 'POST', body: JSON.stringify({ code }) }),
+
+  approveJoin: (spaceId: string, userId: string) =>
+    request<any>(`/spaces/${spaceId}/approve`, { method: 'POST', body: JSON.stringify({ userId }) }),
+
+  rejectJoin: (spaceId: string, userId: string) =>
+    request<any>(`/spaces/${spaceId}/reject`, { method: 'POST', body: JSON.stringify({ userId }) }),
+
+  removeMember: (spaceId: string, userId: string) =>
+    request<any>(`/spaces/${spaceId}/members/${userId}`, { method: 'DELETE' }),
+
+  updateMemberRole: (spaceId: string, userId: string, role: string) =>
+    request<any>(`/spaces/${spaceId}/members/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+
+  // Memories
+  createMemory: (spaceId: string, data: any) =>
+    request<any>(`/spaces/${spaceId}/memories`, { method: 'POST', body: JSON.stringify(data) }),
+
+  updateMemory: (spaceId: string, memoryId: string, data: any) =>
+    request<any>(`/spaces/${spaceId}/memories/${memoryId}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  deleteMemory: (spaceId: string, memoryId: string) =>
+    request<any>(`/spaces/${spaceId}/memories/${memoryId}`, { method: 'DELETE' }),
+
+  addReaction: (spaceId: string, memoryId: string, emoji: string) =>
+    request<any>(`/spaces/${spaceId}/memories/${memoryId}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }),
+
+  addSubstory: (spaceId: string, memoryId: string, data: any) =>
+    request<any>(`/spaces/${spaceId}/memories/${memoryId}/substories`, { method: 'POST', body: JSON.stringify(data) }),
+}

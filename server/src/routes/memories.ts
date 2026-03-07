@@ -1,0 +1,147 @@
+import { Router } from 'express'
+import { prisma, formatMemory } from '../db.js'
+import { authMiddleware } from '../middleware/auth.js'
+import { User } from '../types.js'
+
+const router = Router()
+router.use(authMiddleware)
+
+async function validateMembership(spaceId: string, userId: string) {
+  const member = await prisma.spaceMember.findUnique({
+    where: { userId_spaceId: { userId, spaceId } },
+  })
+  if (!member || member.status !== 'active') return false
+  return true
+}
+
+// POST /api/spaces/:spaceId/memories
+router.post('/:spaceId/memories', async (req, res) => {
+  const user = (req as any).user as User
+  if (!(await validateMembership(req.params.spaceId, user.id))) {
+    res.status(403).json({ error: 'Not a member of this space' }); return
+  }
+
+  const { title, date, story, location, tags, photos, endDate, visibleTo } = req.body
+  if (!title?.trim() || !story?.trim()) {
+    res.status(400).json({ error: 'Title and story are required' }); return
+  }
+
+  const memory = await prisma.memory.create({
+    data: {
+      id: `m-${Date.now()}`,
+      title: title.trim(),
+      date,
+      endDate,
+      photos: JSON.stringify(photos || []),
+      story: story.trim(),
+      location: location?.trim() || null,
+      tags: tags ? JSON.stringify(tags) : undefined,
+      reactions: JSON.stringify({}),
+      visibleTo: visibleTo?.length > 0 ? JSON.stringify(visibleTo) : undefined,
+      createdById: user.id,
+      spaceId: req.params.spaceId,
+    },
+    include: { substories: true },
+  })
+
+  res.status(201).json(formatMemory(memory))
+})
+
+// PUT /api/spaces/:spaceId/memories/:memoryId
+router.put('/:spaceId/memories/:memoryId', async (req, res) => {
+  const user = (req as any).user as User
+  if (!(await validateMembership(req.params.spaceId, user.id))) {
+    res.status(403).json({ error: 'Not a member of this space' }); return
+  }
+
+  const { title, date, story, location, tags, photos, endDate, visibleTo } = req.body
+  const data: any = {}
+  if (title !== undefined) data.title = title.trim()
+  if (date !== undefined) data.date = date
+  if (endDate !== undefined) data.endDate = endDate
+  if (story !== undefined) data.story = story.trim()
+  if (location !== undefined) data.location = location?.trim() || null
+  if (tags !== undefined) data.tags = tags ? JSON.stringify(tags) : null
+  if (photos !== undefined) data.photos = JSON.stringify(photos || [])
+  if (visibleTo !== undefined) data.visibleTo = visibleTo?.length > 0 ? JSON.stringify(visibleTo) : null
+
+  const memory = await prisma.memory.update({
+    where: { id: req.params.memoryId },
+    data,
+    include: { substories: true },
+  })
+
+  res.json(formatMemory(memory))
+})
+
+// DELETE /api/spaces/:spaceId/memories/:memoryId
+router.delete('/:spaceId/memories/:memoryId', async (req, res) => {
+  const user = (req as any).user as User
+  if (!(await validateMembership(req.params.spaceId, user.id))) {
+    res.status(403).json({ error: 'Not a member of this space' }); return
+  }
+
+  await prisma.memory.delete({ where: { id: req.params.memoryId } })
+  res.json({ success: true })
+})
+
+// POST /api/spaces/:spaceId/memories/:memoryId/react
+router.post('/:spaceId/memories/:memoryId/react', async (req, res) => {
+  const user = (req as any).user as User
+  if (!(await validateMembership(req.params.spaceId, user.id))) {
+    res.status(403).json({ error: 'Not a member of this space' }); return
+  }
+
+  const { emoji } = req.body
+  if (!emoji) { res.status(400).json({ error: 'Emoji is required' }); return }
+
+  const memory = await prisma.memory.findUnique({ where: { id: req.params.memoryId } })
+  if (!memory) { res.status(404).json({ error: 'Memory not found' }); return }
+
+  const reactions: Record<string, number> = typeof memory.reactions === 'string'
+    ? JSON.parse(memory.reactions)
+    : (memory.reactions as any) || {}
+  reactions[emoji] = (reactions[emoji] || 0) + 1
+
+  await prisma.memory.update({
+    where: { id: req.params.memoryId },
+    data: { reactions: JSON.stringify(reactions) },
+  })
+
+  res.json({ reactions })
+})
+
+// POST /api/spaces/:spaceId/memories/:memoryId/substories
+router.post('/:spaceId/memories/:memoryId/substories', async (req, res) => {
+  const user = (req as any).user as User
+  if (!(await validateMembership(req.params.spaceId, user.id))) {
+    res.status(403).json({ error: 'Not a member of this space' }); return
+  }
+
+  const { date, type, title, content, caption, photos } = req.body
+
+  const substory = await prisma.subStory.create({
+    data: {
+      id: `sub-${Date.now()}`,
+      date: date || new Date().toISOString().split('T')[0],
+      type: type || 'text',
+      title: title?.trim() || null,
+      content: type === 'text' ? content?.trim() : null,
+      caption: type !== 'text' ? caption?.trim() : null,
+      photos: type !== 'text' ? JSON.stringify(photos || []) : undefined,
+      memoryId: req.params.memoryId,
+    },
+  })
+
+  res.status(201).json({
+    id: substory.id,
+    date: substory.date,
+    type: substory.type,
+    title: substory.title,
+    content: substory.content,
+    photos: substory.photos ? JSON.parse(substory.photos as string) : undefined,
+    caption: substory.caption,
+  })
+})
+
+export default router

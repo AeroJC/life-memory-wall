@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, MapPin, Tag, Eye } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { X, MapPin, Tag, Eye, Upload, Loader2 } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import { Memory, SpaceMember } from '../types'
+import { uploadMultipleImages } from '../cloudinary'
 
 interface Props {
   isOpen: boolean
@@ -21,6 +22,9 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
   const [tagsInput, setTagsInput] = useState('')
   const [visibleTo, setVisibleTo] = useState<string[]>([])
   const [showVisibility, setShowVisibility] = useState(false)
+  const [photos, setPhotos] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const activeMembers = members?.filter((m) => m.status === 'active') || []
 
@@ -33,6 +37,7 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
       setTagsInput(editMemory.tags?.join(', ') || '')
       setVisibleTo(editMemory.visibleTo || [])
       setShowVisibility((editMemory.visibleTo?.length || 0) > 0)
+      setPhotos(editMemory.photos || [])
     } else {
       setTitle('')
       setDate(new Date().toISOString().split('T')[0])
@@ -41,6 +46,7 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
       setTagsInput('')
       setVisibleTo([])
       setShowVisibility(false)
+      setPhotos([])
     }
   }, [editMemory, isOpen])
 
@@ -51,7 +57,7 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
       id: editMemory?.id || `m-${Date.now()}`,
       title: title.trim(),
       date,
-      photos: editMemory?.photos || [],
+      photos,
       story: story.trim(),
       location: location.trim() || undefined,
       tags: tagsInput
@@ -145,19 +151,66 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
                   />
                 </div>
 
-                {/* Photo upload placeholder */}
+                {/* Photo upload */}
                 <div>
                   <label className="font-handwriting text-warmDark/55 text-lg block mb-2">
                     Add photos
                   </label>
-                  <div className="border-2 border-dashed border-warmMid/15 rounded-xl p-6 text-center hover:border-gold/30 transition-colors cursor-pointer">
-                    <p className="text-warmDark/40 text-sm">
-                      Drag photos here or tap to upload
-                    </p>
-                    <p className="text-warmDark/30 text-xs mt-1">
-                      Coming soon
-                    </p>
-                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || [])
+                      if (files.length === 0) return
+                      setUploading(true)
+                      try {
+                        const urls = await uploadMultipleImages(files)
+                        setPhotos((prev) => [...prev, ...urls])
+                      } catch {
+                        alert('Failed to upload images. Please try again.')
+                      } finally {
+                        setUploading(false)
+                        if (fileInputRef.current) fileInputRef.current.value = ''
+                      }
+                    }}
+                  />
+                  {photos.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      {photos.map((url, i) => (
+                        <div key={i} className="relative group aspect-square rounded-xl overflow-hidden">
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                            className="absolute top-1 right-1 w-6 h-6 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3.5 h-3.5 text-white" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="w-full border-2 border-dashed border-warmMid/15 rounded-xl p-6 text-center hover:border-gold/30 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {uploading ? (
+                      <div className="flex items-center justify-center gap-2 text-warmDark/50">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="text-sm">Uploading...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 text-warmDark/40">
+                        <Upload className="w-5 h-5" />
+                        <span className="text-sm">Tap to upload photos</span>
+                      </div>
+                    )}
+                  </button>
                 </div>
 
                 {/* Location */}

@@ -1,256 +1,235 @@
 import { create } from 'zustand'
 import { Memory, MemorySpace, SubStory, User, SpaceMember, JoinRequest } from '../types'
-import { memorySpaces as initialSpaces, allUsers } from '../data/mockData'
-
-function generateUniqueCode(existingCodes: string[]): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  const existing = new Set(existingCodes)
-  let code = ''
-  do {
-    code = ''
-    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)]
-  } while (existing.has(code))
-  return code
-}
+import { api, setToken, clearToken } from '../api'
 
 interface AppState {
   isLoggedIn: boolean
+  initialized: boolean
   currentUser: User | null
   spaces: MemorySpace[]
   activeSpaceId: string | null
+  activeSpaceData: MemorySpace | null
+  loading: boolean
 
-  login: (user?: Partial<User>) => void
+  init: () => Promise<void>
+  login: (user?: Partial<User>) => Promise<void>
   logout: () => void
-  setActiveSpace: (id: string | null) => void
-  getActiveSpace: () => MemorySpace | undefined
+  fetchSpaces: () => Promise<void>
+  setActiveSpace: (id: string | null) => Promise<void>
+  getActiveSpace: () => MemorySpace | null
   getVisibleSpaces: () => MemorySpace[]
   getVisibleMemories: (space: MemorySpace) => Memory[]
 
-  addMemory: (spaceId: string, memory: Memory) => void
-  updateMemory: (spaceId: string, memoryId: string, updates: Partial<Memory>) => void
-  deleteMemory: (spaceId: string, memoryId: string) => void
-  addReaction: (spaceId: string, memoryId: string, emoji: string) => void
-  addSubstory: (spaceId: string, memoryId: string, substory: SubStory) => void
+  addMemory: (spaceId: string, memory: Memory) => Promise<void>
+  updateMemory: (spaceId: string, memoryId: string, updates: Partial<Memory>) => Promise<void>
+  deleteMemory: (spaceId: string, memoryId: string) => Promise<void>
+  addReaction: (spaceId: string, memoryId: string, emoji: string) => Promise<void>
+  addSubstory: (spaceId: string, memoryId: string, substory: SubStory) => Promise<void>
 
-  addSpace: (space: MemorySpace) => void
-  requestJoinByCode: (code: string) => { success: boolean; spaceName?: string; error?: string }
-  approveJoinRequest: (spaceId: string, userId: string) => void
-  rejectJoinRequest: (spaceId: string, userId: string) => void
-  getPendingRequests: (spaceId: string) => JoinRequest[]
-  getInviteCode: (spaceId: string) => string | undefined
-  removeMember: (spaceId: string, userId: string) => void
-  updateMemberRole: (spaceId: string, userId: string, role: SpaceMember['role']) => void
+  addSpace: (space: MemorySpace) => Promise<void>
+  removeMember: (spaceId: string, userId: string) => Promise<void>
+  updateMemberRole: (spaceId: string, userId: string, role: SpaceMember['role']) => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
   isLoggedIn: false,
+  initialized: false,
   currentUser: null,
-  spaces: initialSpaces,
+  spaces: [],
   activeSpaceId: null,
+  activeSpaceData: null,
+  loading: false,
 
-  login: (user) => {
-    const existing = user?.id ? allUsers.find((u) => u.id === user.id) : allUsers[0]
-    const merged: User = {
-      id: user?.id || existing?.id || 'u1',
-      name: user?.name || existing?.name || 'User',
-      email: user?.email || existing?.email || '',
-      avatar: user?.avatar || existing?.avatar || '',
-      phone: user?.phone || existing?.phone,
+  init: async () => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      set({ initialized: true })
+      return
     }
-    set({ isLoggedIn: true, currentUser: merged })
+    try {
+      const result = await api.login({ id: token })
+      setToken(result.token)
+      set({ isLoggedIn: true, currentUser: result.user })
+      await get().fetchSpaces()
+      const savedSpaceId = localStorage.getItem('activeSpaceId')
+      if (savedSpaceId) {
+        await get().setActiveSpace(savedSpaceId)
+      }
+      set({ initialized: true })
+    } catch {
+      clearToken()
+      localStorage.removeItem('activeSpaceId')
+      set({ initialized: true })
+    }
   },
 
-  logout: () => set({ isLoggedIn: false, currentUser: null, activeSpaceId: null }),
-  setActiveSpace: (id) => set({ activeSpaceId: id }),
-
-  getActiveSpace: () => {
-    const { spaces, activeSpaceId } = get()
-    return spaces.find((s) => s.id === activeSpaceId)
+  login: async (user) => {
+    const result = await api.login({
+      id: user?.id,
+      email: user?.email,
+      phone: user?.phone,
+      name: user?.name,
+      password: (user as any)?.password,
+    })
+    setToken(result.token)
+    set({ isLoggedIn: true, currentUser: result.user })
+    await get().fetchSpaces()
   },
 
-  getVisibleSpaces: () => {
-    const { spaces, currentUser } = get()
-    if (!currentUser) return []
-    return spaces.filter((s) =>
-      s.membersList.some((m) => m.userId === currentUser.id && m.status === 'active')
-    )
+  logout: () => {
+    clearToken()
+    localStorage.removeItem('activeSpaceId')
+    set({ isLoggedIn: false, currentUser: null, spaces: [], activeSpaceId: null, activeSpaceData: null })
   },
+
+  fetchSpaces: async () => {
+    try {
+      const spaces = await api.getSpaces()
+      set({ spaces })
+    } catch (err) {
+      console.error('Failed to fetch spaces:', err)
+    }
+  },
+
+  setActiveSpace: async (id) => {
+    if (!id) {
+      localStorage.removeItem('activeSpaceId')
+      set({ activeSpaceId: null, activeSpaceData: null })
+      await get().fetchSpaces()
+      return
+    }
+    localStorage.setItem('activeSpaceId', id)
+    set({ activeSpaceId: id, loading: true })
+    try {
+      const spaceData = await api.getSpace(id)
+      set({ activeSpaceData: spaceData, loading: false })
+    } catch (err) {
+      console.error('Failed to fetch space:', err)
+      localStorage.removeItem('activeSpaceId')
+      set({ loading: false })
+    }
+  },
+
+  getActiveSpace: () => get().activeSpaceData,
+
+  getVisibleSpaces: () => get().spaces,
 
   getVisibleMemories: (space) => {
     const { currentUser } = get()
-    if (!currentUser) return []
-    return space.memories.filter((m) => {
+    if (!currentUser) return space.memories || []
+    return (space.memories || []).filter((m) => {
       if (!m.visibleTo || m.visibleTo.length === 0) return true
+      if (m.createdBy === currentUser.id) return true
       return m.visibleTo.includes(currentUser.id)
     })
   },
 
-  addMemory: (spaceId, memory) =>
-    set((state) => ({
-      spaces: state.spaces.map((s) =>
-        s.id === spaceId
-          ? { ...s, memories: [...s.memories, memory], memoryCount: s.memoryCount + 1 }
-          : s
-      ),
-    })),
+  addMemory: async (spaceId, memory) => {
+    try {
+      const created = await api.createMemory(spaceId, memory)
+      set((state) => ({
+        activeSpaceData: state.activeSpaceData?.id === spaceId
+          ? { ...state.activeSpaceData, memories: [...state.activeSpaceData.memories, created], memoryCount: state.activeSpaceData.memoryCount + 1 }
+          : state.activeSpaceData,
+      }))
+    } catch (err) {
+      console.error('Failed to create memory:', err)
+    }
+  },
 
-  updateMemory: (spaceId, memoryId, updates) =>
-    set((state) => ({
-      spaces: state.spaces.map((s) =>
-        s.id === spaceId
-          ? { ...s, memories: s.memories.map((m) => m.id === memoryId ? { ...m, ...updates } : m) }
-          : s
-      ),
-    })),
+  updateMemory: async (spaceId, memoryId, updates) => {
+    try {
+      const updated = await api.updateMemory(spaceId, memoryId, updates)
+      set((state) => ({
+        activeSpaceData: state.activeSpaceData?.id === spaceId
+          ? { ...state.activeSpaceData, memories: state.activeSpaceData.memories.map((m) => m.id === memoryId ? updated : m) }
+          : state.activeSpaceData,
+      }))
+    } catch (err) {
+      console.error('Failed to update memory:', err)
+    }
+  },
 
-  deleteMemory: (spaceId, memoryId) =>
-    set((state) => ({
-      spaces: state.spaces.map((s) =>
-        s.id === spaceId
-          ? { ...s, memories: s.memories.filter((m) => m.id !== memoryId), memoryCount: s.memoryCount - 1 }
-          : s
-      ),
-    })),
+  deleteMemory: async (spaceId, memoryId) => {
+    try {
+      await api.deleteMemory(spaceId, memoryId)
+      set((state) => ({
+        activeSpaceData: state.activeSpaceData?.id === spaceId
+          ? { ...state.activeSpaceData, memories: state.activeSpaceData.memories.filter((m) => m.id !== memoryId), memoryCount: state.activeSpaceData.memoryCount - 1 }
+          : state.activeSpaceData,
+      }))
+    } catch (err) {
+      console.error('Failed to delete memory:', err)
+    }
+  },
 
-  addReaction: (spaceId, memoryId, emoji) =>
-    set((state) => ({
-      spaces: state.spaces.map((s) =>
-        s.id === spaceId
+  addReaction: async (spaceId, memoryId, emoji) => {
+    try {
+      const result = await api.addReaction(spaceId, memoryId, emoji)
+      set((state) => ({
+        activeSpaceData: state.activeSpaceData?.id === spaceId
           ? {
-              ...s,
-              memories: s.memories.map((m) =>
+              ...state.activeSpaceData,
+              memories: state.activeSpaceData.memories.map((m) =>
+                m.id === memoryId ? { ...m, reactions: result.reactions } : m
+              ),
+            }
+          : state.activeSpaceData,
+      }))
+    } catch (err) {
+      console.error('Failed to add reaction:', err)
+    }
+  },
+
+  addSubstory: async (spaceId, memoryId, substory) => {
+    try {
+      const created = await api.addSubstory(spaceId, memoryId, substory)
+      set((state) => ({
+        activeSpaceData: state.activeSpaceData?.id === spaceId
+          ? {
+              ...state.activeSpaceData,
+              memories: state.activeSpaceData.memories.map((m) =>
                 m.id === memoryId
-                  ? { ...m, reactions: { ...m.reactions, [emoji]: ((m.reactions?.[emoji]) ?? 0) + 1 } }
+                  ? { ...m, substories: [...(m.substories || []), created] }
                   : m
               ),
             }
-          : s
-      ),
-    })),
-
-  addSubstory: (spaceId, memoryId, substory) =>
-    set((state) => ({
-      spaces: state.spaces.map((s) =>
-        s.id === spaceId
-          ? {
-              ...s,
-              memories: s.memories.map((m) =>
-                m.id === memoryId
-                  ? { ...m, substories: [...(m.substories || []), substory] }
-                  : m
-              ),
-            }
-          : s
-      ),
-    })),
-
-  addSpace: (space) => {
-    const { currentUser, spaces } = get()
-    if (!currentUser) return
-    const existingCodes = spaces.map((s) => s.inviteCode).filter(Boolean) as string[]
-    const newSpace: MemorySpace = {
-      ...space,
-      createdBy: currentUser.id,
-      inviteCode: space.type === 'group' ? generateUniqueCode(existingCodes) : undefined,
-      joinRequests: [],
-      membersList: [
-        { userId: currentUser.id, name: currentUser.name, role: 'owner', status: 'active', joinedAt: new Date().toISOString().split('T')[0] },
-      ],
+          : state.activeSpaceData,
+      }))
+    } catch (err) {
+      console.error('Failed to add substory:', err)
     }
-    set((state) => ({ spaces: [...state.spaces, newSpace] }))
   },
 
-  requestJoinByCode: (code) => {
-    const { spaces, currentUser } = get()
-    if (!currentUser) return { success: false, error: 'Not logged in' }
-
-    const upperCode = code.toUpperCase().trim()
-    const space = spaces.find((s) => s.inviteCode === upperCode)
-
-    if (!space) return { success: false, error: 'Invalid invite code. Please check and try again.' }
-    if (space.membersList.some((m) => m.userId === currentUser.id && m.status === 'active'))
-      return { success: false, error: 'You are already a member of this space.' }
-    if (space.joinRequests.some((r) => r.userId === currentUser.id))
-      return { success: false, error: 'You already have a pending request for this space.' }
-
-    const request: JoinRequest = {
-      userId: currentUser.id,
-      userName: currentUser.name,
-      requestedAt: new Date().toISOString().split('T')[0],
+  addSpace: async (space) => {
+    try {
+      await api.createSpace({
+        title: space.title,
+        coverEmoji: space.coverEmoji,
+        type: space.type,
+        description: space.description,
+      })
+      await get().fetchSpaces()
+    } catch (err) {
+      console.error('Failed to create space:', err)
     }
-
-    set((state) => ({
-      spaces: state.spaces.map((s) =>
-        s.id === space.id
-          ? { ...s, joinRequests: [...s.joinRequests, request] }
-          : s
-      ),
-    }))
-
-    return { success: true, spaceName: space.title }
   },
 
-  approveJoinRequest: (spaceId, userId) => {
-    const { spaces } = get()
-    const space = spaces.find((s) => s.id === spaceId)
-    const request = space?.joinRequests.find((r) => r.userId === userId)
-    if (!request) return
-
-    const newMember: SpaceMember = {
-      userId: request.userId,
-      name: request.userName,
-      role: 'member',
-      status: 'active',
-      joinedAt: new Date().toISOString().split('T')[0],
+  removeMember: async (spaceId, userId) => {
+    try {
+      await api.removeMember(spaceId, userId)
+      await get().fetchSpaces()
+    } catch (err) {
+      console.error('Failed to remove member:', err)
     }
-
-    set((state) => ({
-      spaces: state.spaces.map((s) =>
-        s.id === spaceId
-          ? {
-              ...s,
-              membersList: [...s.membersList, newMember],
-              joinRequests: s.joinRequests.filter((r) => r.userId !== userId),
-            }
-          : s
-      ),
-    }))
   },
 
-  rejectJoinRequest: (spaceId, userId) =>
-    set((state) => ({
-      spaces: state.spaces.map((s) =>
-        s.id === spaceId
-          ? { ...s, joinRequests: s.joinRequests.filter((r) => r.userId !== userId) }
-          : s
-      ),
-    })),
-
-  getPendingRequests: (spaceId) => {
-    const { spaces } = get()
-    return spaces.find((s) => s.id === spaceId)?.joinRequests || []
+  updateMemberRole: async (spaceId, userId, role) => {
+    try {
+      await api.updateMemberRole(spaceId, userId, role)
+      await get().fetchSpaces()
+    } catch (err) {
+      console.error('Failed to update role:', err)
+    }
   },
-
-  getInviteCode: (spaceId) => {
-    const { spaces } = get()
-    return spaces.find((s) => s.id === spaceId)?.inviteCode
-  },
-
-  removeMember: (spaceId, userId) =>
-    set((state) => ({
-      spaces: state.spaces.map((s) =>
-        s.id === spaceId
-          ? { ...s, membersList: s.membersList.filter((m) => m.userId !== userId) }
-          : s
-      ),
-    })),
-
-  updateMemberRole: (spaceId, userId, role) =>
-    set((state) => ({
-      spaces: state.spaces.map((s) =>
-        s.id === spaceId
-          ? { ...s, membersList: s.membersList.map((m) => m.userId === userId ? { ...m, role } : m) }
-          : s
-      ),
-    })),
 }))
