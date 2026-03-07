@@ -56,7 +56,8 @@ export interface MemorySpace {
   createdBy: string
   inviteCode?: string
   membersList: SpaceMember[]
-  joinRequests: JoinRequest[]
+  joinRequests?: JoinRequest[]
+  pendingInvites?: any[]
   description?: string
   memories: Memory[]
 }
@@ -67,4 +68,5 @@ export interface User {
   avatar: string
   email: string
   phone?: string
+  password?: string
 }
