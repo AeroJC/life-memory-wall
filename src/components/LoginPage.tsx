@@ -99,7 +99,7 @@ export default function LoginPage() {
     try {
       const result = await api.signup({ name: signupName.trim(), email: signupEmail.trim().toLowerCase(), password: signupPassword })
       setToken(result.token)
-      useStore.setState({ isLoggedIn: true, currentUser: result.user })
+      useStore.setState({ isLoggedIn: true, currentUser: result.user, initialized: true })
       await fetchSpaces()
     } catch (err: any) {
       setSignupError(err.message || 'Sign up failed. Please try again.')

@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { prisma, formatMemory } from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { User } from '../types.js'
+import { deleteCloudinaryImages, getRemovedUrls } from '../cloudinary.js'
 
 const router = Router()
 router.use(authMiddleware)
@@ -65,6 +66,16 @@ router.put('/:spaceId/memories/:memoryId', async (req, res) => {
   if (photos !== undefined) data.photos = JSON.stringify(photos || [])
   if (visibleTo !== undefined) data.visibleTo = visibleTo?.length > 0 ? JSON.stringify(visibleTo) : null
 
+  // Delete removed photos from Cloudinary
+  if (photos !== undefined) {
+    const existing = await prisma.memory.findUnique({ where: { id: req.params.memoryId } })
+    if (existing) {
+      const oldPhotos: string[] = typeof existing.photos === 'string' ? JSON.parse(existing.photos) : (existing.photos as any) || []
+      const removed = getRemovedUrls(oldPhotos, photos || [])
+      if (removed.length > 0) deleteCloudinaryImages(removed).catch(() => {})
+    }
+  }
+
   const memory = await prisma.memory.update({
     where: { id: req.params.memoryId },
     data,
@@ -79,6 +90,24 @@ router.delete('/:spaceId/memories/:memoryId', async (req, res) => {
   const user = (req as any).user as User
   if (!(await validateMembership(req.params.spaceId, user.id))) {
     res.status(403).json({ error: 'Not a member of this space' }); return
+  }
+
+  // Collect all photos before deleting
+  const memory = await prisma.memory.findUnique({
+    where: { id: req.params.memoryId },
+    include: { substories: true },
+  })
+  if (memory) {
+    const allUrls: string[] = []
+    const memPhotos: string[] = typeof memory.photos === 'string' ? JSON.parse(memory.photos) : (memory.photos as any) || []
+    allUrls.push(...memPhotos)
+    for (const sub of memory.substories) {
+      if (sub.photos) {
+        const subPhotos: string[] = typeof sub.photos === 'string' ? JSON.parse(sub.photos) : (sub.photos as any) || []
+        allUrls.push(...subPhotos)
+      }
+    }
+    if (allUrls.length > 0) deleteCloudinaryImages(allUrls).catch(() => {})
   }
 
   await prisma.memory.delete({ where: { id: req.params.memoryId } })
@@ -168,6 +197,16 @@ router.put('/:spaceId/memories/:memoryId/substories/:substoryId', async (req, re
     if (photos !== undefined) data.photos = JSON.stringify(photos || [])
   }
 
+  // Delete removed photos from Cloudinary
+  if (photos !== undefined) {
+    const existing = await prisma.subStory.findUnique({ where: { id: req.params.substoryId } })
+    if (existing?.photos) {
+      const oldPhotos: string[] = typeof existing.photos === 'string' ? JSON.parse(existing.photos) : (existing.photos as any) || []
+      const removed = getRemovedUrls(oldPhotos, photos || [])
+      if (removed.length > 0) deleteCloudinaryImages(removed).catch(() => {})
+    }
+  }
+
   const substory = await prisma.subStory.update({ where: { id: req.params.substoryId }, data })
   res.json({
     id: substory.id, date: substory.date, type: substory.type,
@@ -183,6 +222,12 @@ router.delete('/:spaceId/memories/:memoryId/substories/:substoryId', async (req,
   if (!(await validateMembership(req.params.spaceId, user.id))) {
     res.status(403).json({ error: 'Not a member of this space' }); return
   }
+  const substory = await prisma.subStory.findUnique({ where: { id: req.params.substoryId } })
+  if (substory?.photos) {
+    const photos: string[] = typeof substory.photos === 'string' ? JSON.parse(substory.photos) : (substory.photos as any) || []
+    if (photos.length > 0) deleteCloudinaryImages(photos).catch(() => {})
+  }
+
   await prisma.subStory.delete({ where: { id: req.params.substoryId } })
   res.json({ success: true })
 })
