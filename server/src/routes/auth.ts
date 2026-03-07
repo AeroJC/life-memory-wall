@@ -4,6 +4,20 @@ import { prisma } from '../db.js'
 
 const router = Router()
 
+async function processPendingInvites(userId: string, email: string) {
+  const invites = await prisma.pendingInvite.findMany({ where: { email: email.toLowerCase() } })
+  if (invites.length === 0) return
+  for (const invite of invites) {
+    const exists = await prisma.spaceMember.findUnique({ where: { userId_spaceId: { userId, spaceId: invite.spaceId } } })
+    if (!exists) {
+      await prisma.spaceMember.create({
+        data: { userId, spaceId: invite.spaceId, role: 'member', status: 'active', joinedAt: new Date().toISOString().split('T')[0] },
+      })
+    }
+  }
+  await prisma.pendingInvite.deleteMany({ where: { email: email.toLowerCase() } })
+}
+
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {
   const { name, email, password } = req.body
@@ -23,6 +37,7 @@ router.post('/signup', async (req, res) => {
       password: hashed,
     },
   })
+  await processPendingInvites(user.id, user.email)
   res.json({ user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar }, token: user.id })
 })
 
@@ -50,6 +65,7 @@ router.post('/login', async (req, res) => {
         res.status(401).json({ error: 'Invalid email or password' }); return
       }
     }
+    await processPendingInvites(user.id, user.email)
     res.json({ user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar, phone: user.phone }, token: user.id })
     return
   }

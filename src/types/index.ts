@@ -1,7 +1,7 @@
 export interface SubStory {
   id: string
   date: string
-  type: 'text' | 'photo' | 'photos'
+  type: 'text' | 'photo' | 'photos' | 'img-left' | 'img-right' | 'img-top' | 'img-bottom'
   title?: string
   content?: string
   photos?: string[]

@@ -1,7 +1,8 @@
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Users } from 'lucide-react'
+import { ArrowLeft, Users, Send } from 'lucide-react'
 import { useState } from 'react'
 import { useStore } from '../store/useStore'
+import { api } from '../api'
 import { Memory, SubStory } from '../types'
 import MemoryCard from './MemoryCard'
 import MemoryDetail from './MemoryDetail'
@@ -9,7 +10,7 @@ import CreateMemoryModal from './CreateMemoryModal'
 import FloatingNav from './FloatingNav'
 
 export default function Timeline() {
-  const { getActiveSpace, setActiveSpace, addMemory, updateMemory, deleteMemory, addReaction, addSubstory, getVisibleMemories, currentUser } =
+  const { getActiveSpace, setActiveSpace, addMemory, updateMemory, deleteMemory, addReaction, addSubstory, updateSubstory, deleteSubstory, getVisibleMemories, currentUser } =
     useStore()
   const space = getActiveSpace()
   const [showCreate, setShowCreate] = useState(false)
@@ -17,6 +18,10 @@ export default function Timeline() {
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | null>(null)
 
   const [showMembers, setShowMembers] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteStatus, setInviteStatus] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [inviting, setInviting] = useState(false)
+
 
   const { scrollYProgress } = useScroll()
   const pathLength = useTransform(scrollYProgress, [0, 1], [0, 1])
@@ -62,6 +67,15 @@ export default function Timeline() {
     addSubstory(space.id, memoryId, substory)
   }
 
+  const handleUpdateSubstory = (memoryId: string, substory: SubStory) => {
+    updateSubstory(space.id, memoryId, substory.id, substory)
+  }
+
+  const handleDeleteSubstory = (memoryId: string, substoryId: string) => {
+    deleteSubstory(space.id, memoryId, substoryId)
+  }
+
+
   const goBack = () => {
     if (isDetailOpen) {
       setSelectedMemoryId(null)
@@ -70,11 +84,30 @@ export default function Timeline() {
     }
   }
 
+  const myRole = space.membersList.find((m) => m.userId === currentUser?.id)?.role
+  const canInvite = myRole === 'owner' || myRole === 'admin'
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim() || !inviteEmail.includes('@')) return
+    setInviting(true)
+    setInviteStatus(null)
+    try {
+      const result = await api.inviteByEmail(space.id, inviteEmail.trim())
+      setInviteStatus({ ok: true, msg: result.message })
+      setInviteEmail('')
+    } catch (err: any) {
+      setInviteStatus({ ok: false, msg: err.message || 'Failed to send invite' })
+    } finally {
+      setInviting(false)
+      setTimeout(() => setInviteStatus(null), 4000)
+    }
+  }
+
   // Shared members panel content
   const MembersPanel = (
     <>
-      <div className="fixed inset-0 z-40" onClick={() => setShowMembers(false)} />
-      <div className="absolute right-0 top-9 z-50 glass rounded-2xl p-4 w-72 shadow-lg max-h-[70vh] overflow-y-auto">
+      <div className="fixed inset-0 z-40" onClick={() => { setShowMembers(false); setInviteStatus(null) }} />
+      <div className="absolute right-0 top-9 z-50 glass rounded-2xl p-4 w-72 shadow-lg max-h-[80vh] overflow-y-auto">
         <p className="font-serif text-sm text-warmDark mb-3">Members</p>
         <ul className="space-y-2">
           {space.membersList.filter((m) => m.status === 'active').map((m) => (
@@ -88,6 +121,34 @@ export default function Timeline() {
             </li>
           ))}
         </ul>
+
+        {canInvite && (
+          <div className="mt-4 pt-4 border-t border-warmMid/10">
+            <p className="font-sans text-xs text-warmDark/50 mb-2">Invite by email</p>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
+                placeholder="email@example.com"
+                className="flex-1 bg-white/40 rounded-xl px-3 py-2 text-sm text-warmDark font-sans outline-none focus:ring-2 focus:ring-gold/30 transition-all"
+              />
+              <button
+                onClick={handleInvite}
+                disabled={inviting}
+                className="p-2 rounded-xl bg-gradient-to-br from-gold/80 to-coral/70 text-white flex-shrink-0 disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+            {inviteStatus && (
+              <p className={`text-xs mt-2 font-sans ${inviteStatus.ok ? 'text-teal' : 'text-coral'}`}>
+                {inviteStatus.msg}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </>
   )
@@ -97,7 +158,7 @@ export default function Timeline() {
 
       {/* ── DETAIL MODE: slim sticky header ── */}
       {isDetailOpen && (
-        <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-2">
+        <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-2" style={{ background: 'linear-gradient(-45deg, #f0e6ff, #ffe8d6, #e8f0ff, #fff0e8)', backgroundSize: '400% 400%' }}>
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); goBack() }}
@@ -127,6 +188,7 @@ export default function Timeline() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="sticky top-0 z-30 px-4 py-4"
+          style={{ background: 'linear-gradient(-45deg, #f0e6ff, #ffe8d6, #e8f0ff, #fff0e8)', backgroundSize: '400% 400%' }}
         >
           <div className="glass rounded-2xl px-5 py-3 max-w-6xl mx-auto flex items-center justify-between">
             <button
@@ -331,6 +393,8 @@ export default function Timeline() {
                   memory={selectedMemory}
                   onClose={() => setSelectedMemoryId(null)}
                   onAddSubstory={handleAddSubstory}
+                  onUpdateSubstory={handleUpdateSubstory}
+                  onDeleteSubstory={handleDeleteSubstory}
                 />
               </motion.div>
             )}
@@ -352,6 +416,8 @@ export default function Timeline() {
                     memory={selectedMemory}
                     onClose={() => setSelectedMemoryId(null)}
                     onAddSubstory={handleAddSubstory}
+                    onUpdateSubstory={handleUpdateSubstory}
+                    onDeleteSubstory={handleDeleteSubstory}
                   />
                 </div>
               </motion.div>

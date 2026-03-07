@@ -146,6 +146,73 @@ router.post('/:id/reject', async (req, res) => {
   res.json({ success: true })
 })
 
+// POST /api/spaces/:id/invite
+router.post('/:id/invite', async (req, res) => {
+  const user = (req as any).user as User
+  const { email } = req.body
+
+  if (!email?.trim() || !email.includes('@')) {
+    res.status(400).json({ error: 'Valid email is required' }); return
+  }
+
+  const myMember = await prisma.spaceMember.findUnique({ where: { userId_spaceId: { userId: user.id, spaceId: req.params.id } } })
+  if (!myMember || (myMember.role !== 'owner' && myMember.role !== 'admin')) {
+    res.status(403).json({ error: 'Only owner or admin can invite members' }); return
+  }
+
+  const normalizedEmail = email.toLowerCase().trim()
+
+  // If user already exists, add them directly
+  const invitedUser = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+  if (invitedUser) {
+    const existing = await prisma.spaceMember.findUnique({ where: { userId_spaceId: { userId: invitedUser.id, spaceId: req.params.id } } })
+    if (existing?.status === 'active') {
+      res.status(409).json({ error: 'This user is already a member' }); return
+    }
+    await prisma.spaceMember.upsert({
+      where: { userId_spaceId: { userId: invitedUser.id, spaceId: req.params.id } },
+      create: { userId: invitedUser.id, spaceId: req.params.id, role: 'member', status: 'active', joinedAt: new Date().toISOString().split('T')[0] },
+      update: { status: 'active' },
+    })
+    res.json({ success: true, message: `${invitedUser.name} has been added to the space` })
+    return
+  }
+
+  // Store pending invite — auto-joins when they sign up
+  await prisma.pendingInvite.upsert({
+    where: { email_spaceId: { email: normalizedEmail, spaceId: req.params.id } },
+    create: { email: normalizedEmail, spaceId: req.params.id, invitedBy: user.id },
+    update: { invitedBy: user.id },
+  })
+  res.json({ success: true, message: `Invite sent to ${email}. They'll join automatically when they sign up.` })
+})
+
+// PATCH /api/spaces/:id
+router.patch('/:id', async (req, res) => {
+  const user = (req as any).user as User
+  const myMember = await prisma.spaceMember.findUnique({ where: { userId_spaceId: { userId: user.id, spaceId: req.params.id } } })
+  if (!myMember || myMember.role !== 'owner') { res.status(403).json({ error: 'Only the owner can edit this space' }); return }
+
+  const { title, coverEmoji, description } = req.body
+  const data: any = {}
+  if (title !== undefined) data.title = title.trim()
+  if (coverEmoji !== undefined) data.coverEmoji = coverEmoji
+  if (description !== undefined) data.description = description
+
+  const space = await prisma.space.update({ where: { id: req.params.id }, data, include: spaceIncludes })
+  res.json(formatSpace(space))
+})
+
+// DELETE /api/spaces/:id
+router.delete('/:id', async (req, res) => {
+  const user = (req as any).user as User
+  const myMember = await prisma.spaceMember.findUnique({ where: { userId_spaceId: { userId: user.id, spaceId: req.params.id } } })
+  if (!myMember || myMember.role !== 'owner') { res.status(403).json({ error: 'Only the owner can delete this space' }); return }
+
+  await prisma.space.delete({ where: { id: req.params.id } })
+  res.json({ success: true })
+})
+
 // DELETE /api/spaces/:id/members/:userId
 router.delete('/:id/members/:userId', async (req, res) => {
   const user = (req as any).user as User

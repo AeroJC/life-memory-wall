@@ -238,7 +238,7 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
                 </div>
 
                 {/* Visibility (group spaces only) */}
-                {spaceType === 'group' && activeMembers.length > 1 && (
+                {spaceType === 'group' && activeMembers.length > 0 && (
                   <div>
                     <button
                       type="button"

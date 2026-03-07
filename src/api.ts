@@ -61,6 +61,9 @@ export const api = {
   rejectJoin: (spaceId: string, userId: string) =>
     request<any>(`/spaces/${spaceId}/reject`, { method: 'POST', body: JSON.stringify({ userId }) }),
 
+  inviteByEmail: (spaceId: string, email: string) =>
+    request<{ success: boolean; message: string }>(`/spaces/${spaceId}/invite`, { method: 'POST', body: JSON.stringify({ email }) }),
+
   removeMember: (spaceId: string, userId: string) =>
     request<any>(`/spaces/${spaceId}/members/${userId}`, { method: 'DELETE' }),
 
@@ -82,4 +85,16 @@ export const api = {
 
   addSubstory: (spaceId: string, memoryId: string, data: any) =>
     request<any>(`/spaces/${spaceId}/memories/${memoryId}/substories`, { method: 'POST', body: JSON.stringify(data) }),
+
+  updateSubstory: (spaceId: string, memoryId: string, substoryId: string, data: any) =>
+    request<any>(`/spaces/${spaceId}/memories/${memoryId}/substories/${substoryId}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  deleteSubstory: (spaceId: string, memoryId: string, substoryId: string) =>
+    request<any>(`/spaces/${spaceId}/memories/${memoryId}/substories/${substoryId}`, { method: 'DELETE' }),
+
+  updateSpace: (spaceId: string, data: { title?: string; coverEmoji?: string; description?: string }) =>
+    request<any>(`/spaces/${spaceId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  deleteSpace: (spaceId: string) =>
+    request<any>(`/spaces/${spaceId}`, { method: 'DELETE' }),
 }

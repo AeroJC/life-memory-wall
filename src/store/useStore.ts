@@ -27,6 +27,10 @@ interface AppState {
   addSubstory: (spaceId: string, memoryId: string, substory: SubStory) => Promise<void>
 
   addSpace: (space: MemorySpace) => Promise<void>
+  updateSpace: (spaceId: string, data: { title?: string; coverEmoji?: string; description?: string }) => Promise<void>
+  deleteSpace: (spaceId: string) => Promise<void>
+  updateSubstory: (spaceId: string, memoryId: string, substoryId: string, data: Partial<SubStory>) => Promise<void>
+  deleteSubstory: (spaceId: string, memoryId: string, substoryId: string) => Promise<void>
   removeMember: (spaceId: string, userId: string) => Promise<void>
   updateMemberRole: (spaceId: string, userId: string, role: SpaceMember['role']) => Promise<void>
 }
@@ -213,6 +217,60 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (err) {
       console.error('Failed to create space:', err)
     }
+  },
+
+  updateSpace: async (spaceId, data) => {
+    try {
+      await api.updateSpace(spaceId, data)
+      set((state) => ({
+        spaces: state.spaces.map((s) => s.id === spaceId ? { ...s, ...data } : s),
+        activeSpaceData: state.activeSpaceData?.id === spaceId ? { ...state.activeSpaceData, ...data } : state.activeSpaceData,
+      }))
+    } catch (err) { console.error('Failed to update space:', err) }
+  },
+
+  deleteSpace: async (spaceId) => {
+    try {
+      await api.deleteSpace(spaceId)
+      localStorage.removeItem('activeSpaceId')
+      set((state) => ({
+        spaces: state.spaces.filter((s) => s.id !== spaceId),
+        activeSpaceId: state.activeSpaceId === spaceId ? null : state.activeSpaceId,
+        activeSpaceData: state.activeSpaceData?.id === spaceId ? null : state.activeSpaceData,
+      }))
+    } catch (err) { console.error('Failed to delete space:', err) }
+  },
+
+  updateSubstory: async (spaceId, memoryId, substoryId, data) => {
+    try {
+      const updated = await api.updateSubstory(spaceId, memoryId, substoryId, data)
+      set((state) => ({
+        activeSpaceData: state.activeSpaceData?.id === spaceId ? {
+          ...state.activeSpaceData,
+          memories: state.activeSpaceData.memories.map((m) =>
+            m.id === memoryId
+              ? { ...m, substories: (m.substories || []).map((s) => s.id === substoryId ? updated : s) }
+              : m
+          ),
+        } : state.activeSpaceData,
+      }))
+    } catch (err) { console.error('Failed to update substory:', err) }
+  },
+
+  deleteSubstory: async (spaceId, memoryId, substoryId) => {
+    try {
+      await api.deleteSubstory(spaceId, memoryId, substoryId)
+      set((state) => ({
+        activeSpaceData: state.activeSpaceData?.id === spaceId ? {
+          ...state.activeSpaceData,
+          memories: state.activeSpaceData.memories.map((m) =>
+            m.id === memoryId
+              ? { ...m, substories: (m.substories || []).filter((s) => s.id !== substoryId) }
+              : m
+          ),
+        } : state.activeSpaceData,
+      }))
+    } catch (err) { console.error('Failed to delete substory:', err) }
   },
 
   removeMember: async (spaceId, userId) => {

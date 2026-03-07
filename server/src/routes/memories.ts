@@ -144,4 +144,47 @@ router.post('/:spaceId/memories/:memoryId/substories', async (req, res) => {
   })
 })
 
+// PUT /api/spaces/:spaceId/memories/:memoryId/substories/:substoryId
+router.put('/:spaceId/memories/:memoryId/substories/:substoryId', async (req, res) => {
+  const user = (req as any).user as User
+  if (!(await validateMembership(req.params.spaceId, user.id))) {
+    res.status(403).json({ error: 'Not a member of this space' }); return
+  }
+
+  const { type, title, content, caption, photos } = req.body
+  const data: any = {}
+  if (type !== undefined) data.type = type
+  if (title !== undefined) data.title = title?.trim() || null
+  if (type === 'text') {
+    if (content !== undefined) data.content = content?.trim() || null
+    data.caption = null; data.photos = null
+  } else if (type !== undefined) {
+    if (caption !== undefined) data.caption = caption?.trim() || null
+    data.content = null
+    if (photos !== undefined) data.photos = JSON.stringify(photos || [])
+  } else {
+    if (content !== undefined) data.content = content?.trim() || null
+    if (caption !== undefined) data.caption = caption?.trim() || null
+    if (photos !== undefined) data.photos = JSON.stringify(photos || [])
+  }
+
+  const substory = await prisma.subStory.update({ where: { id: req.params.substoryId }, data })
+  res.json({
+    id: substory.id, date: substory.date, type: substory.type,
+    title: substory.title, content: substory.content,
+    photos: substory.photos ? JSON.parse(substory.photos as string) : undefined,
+    caption: substory.caption,
+  })
+})
+
+// DELETE /api/spaces/:spaceId/memories/:memoryId/substories/:substoryId
+router.delete('/:spaceId/memories/:memoryId/substories/:substoryId', async (req, res) => {
+  const user = (req as any).user as User
+  if (!(await validateMembership(req.params.spaceId, user.id))) {
+    res.status(403).json({ error: 'Not a member of this space' }); return
+  }
+  await prisma.subStory.delete({ where: { id: req.params.substoryId } })
+  res.json({ success: true })
+})
+
 export default router
