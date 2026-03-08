@@ -201,7 +201,7 @@ export default function Timeline() {
   const MemoryMembersPanel = (
     <>
       <div className="fixed inset-0 z-40" onClick={() => { setShowMembers(false); setInviteStatus(null) }} />
-      <div className="absolute right-0 top-9 z-50 glass rounded-2xl p-4 w-72 shadow-lg max-h-[80vh] overflow-y-auto">
+      <div className="absolute right-0 top-9 z-50 bg-white/95 backdrop-blur-md border border-warmMid/15 rounded-2xl p-4 w-72 shadow-xl max-h-[80vh] overflow-y-auto">
         <p className="font-serif text-sm text-warmDark mb-1">Who can see this</p>
         <p className="font-sans text-xs text-warmDark/40 mb-3">
           {selectedMemory?.visibleTo && selectedMemory.visibleTo.length > 0 ? 'Specific people only' : 'Everyone in the space'}
@@ -216,7 +216,7 @@ export default function Timeline() {
   const SpaceMembersPanel = (
     <>
       <div className="fixed inset-0 z-40" onClick={() => { setShowMembers(false); setInviteStatus(null) }} />
-      <div className="absolute right-0 top-9 z-50 glass rounded-2xl p-4 w-72 shadow-lg max-h-[80vh] overflow-y-auto">
+      <div className="absolute right-0 top-9 z-50 bg-white/95 backdrop-blur-md border border-warmMid/15 rounded-2xl p-4 w-72 shadow-xl max-h-[80vh] overflow-y-auto">
         <p className="font-serif text-sm text-warmDark mb-3">Members</p>
         {renderMembersList(allActiveMembers)}
         {InviteSection}

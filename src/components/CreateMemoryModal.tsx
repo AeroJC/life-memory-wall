@@ -75,7 +75,7 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
         ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean)
         : undefined,
       reactions: editMemory?.reactions || {},
-      visibleTo: visibleTo.length > 0 ? visibleTo : undefined,
+      visibleTo: visibleTo,
       createdBy: currentUserId,
     }
 
