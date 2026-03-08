@@ -277,28 +277,27 @@ export default function Timeline() {
           className="sticky top-0 z-30 rounded-b-3xl px-4 py-4"
           style={{ background: 'linear-gradient(-45deg, #f0e6ff, #ffe8d6, #e8f0ff, #fff0e8)', backgroundSize: '400% 400%' }}
         >
-          <div className="glass rounded-2xl px-5 py-3 max-w-6xl mx-auto flex items-center justify-between">
-            <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); goBack() }}
-              className="flex items-center gap-2 text-warmDark/60 hover:text-warmDark transition-colors cursor-pointer"
-              type="button"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="font-sans text-sm">Spaces</span>
-            </button>
-            <div className="text-center">
-              <h2 className="font-serif text-lg text-warmDark flex items-center gap-2">
-                <span>{space.coverEmoji}</span>
-                {space.title}
-              </h2>
-            </div>
-            <div className="relative flex items-center gap-1">
+          <div className="relative max-w-6xl mx-auto flex items-center justify-between">
+            <div className="glass rounded-2xl px-5 py-3 flex items-center justify-between w-full">
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); goBack() }}
+                className="flex items-center gap-2 text-warmDark/60 hover:text-warmDark transition-colors cursor-pointer"
+                type="button"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="font-sans text-sm">Spaces</span>
+              </button>
+              <div className="text-center">
+                <h2 className="font-serif text-lg text-warmDark flex items-center gap-2">
+                  <span>{space.coverEmoji}</span>
+                  {space.title}
+                </h2>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowMembers((v) => !v)}
                 className="flex items-center gap-1.5 glass rounded-xl px-2.5 py-1.5 hover:shadow-md transition-all cursor-pointer"
               >
-                {/* Stacked avatars */}
                 {space.membersList.filter((m) => m.status === 'active').length > 0 ? (
                   <div className="flex -space-x-1.5">
                     {space.membersList.filter((m) => m.status === 'active').slice(0, 3).map((m) => (
@@ -314,8 +313,8 @@ export default function Timeline() {
                   {space.membersList.filter((m) => m.status === 'active').length}
                 </span>
               </button>
-              {showMembers && SpaceMembersPanel}
             </div>
+            {showMembers && SpaceMembersPanel}
           </div>
         </motion.div>
       )}

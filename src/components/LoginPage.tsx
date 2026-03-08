@@ -1,24 +1,17 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState, useEffect } from 'react'
-import { ArrowLeft, Mail, Phone, Eye, EyeOff, UserPlus } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowLeft, Mail, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { api, setToken } from '../api'
-import { User } from '../types'
 import ParticleBackground from './ParticleBackground'
 
-type Screen = 'main' | 'email' | 'phone' | 'signup'
+type Screen = 'main' | 'email' | 'signup'
 type EmailStep = 'enter' | 'password'
-type PhoneStep = 'enter' | 'otp'
 
 export default function LoginPage() {
   const login = useStore((s) => s.login)
   const fetchSpaces = useStore((s) => s.fetchSpaces)
   const [screen, setScreen] = useState<Screen>('main')
-  const [allUsers, setAllUsers] = useState<User[]>([])
-
-  useEffect(() => {
-    api.getUsers().then(setAllUsers).catch(() => {})
-  }, [])
 
   // Email flow
   const [email, setEmail] = useState('')
@@ -27,11 +20,6 @@ export default function LoginPage() {
   const [emailStep, setEmailStep] = useState<EmailStep>('enter')
   const [loginError, setLoginError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  // Phone flow
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState(['', '', '', '', '', ''])
-  const [phoneStep, setPhoneStep] = useState<PhoneStep>('enter')
 
   // Signup flow
   const [signupName, setSignupName] = useState('')
@@ -47,9 +35,6 @@ export default function LoginPage() {
     setPassword('')
     setEmailStep('enter')
     setLoginError('')
-    setPhone('')
-    setOtp(['', '', '', '', '', ''])
-    setPhoneStep('enter')
     setSignupName('')
     setSignupEmail('')
     setSignupPassword('')
@@ -108,29 +93,6 @@ export default function LoginPage() {
     }
   }
 
-  const handleSendOtp = () => {
-    if (phone.length < 10) return
-    setPhoneStep('otp')
-  }
-
-  const handleOtpChange = (index: number, value: string) => {
-    if (value.length > 1) return
-    const newOtp = [...otp]
-    newOtp[index] = value
-    setOtp(newOtp)
-    if (value && index < 5) document.getElementById(`otp-${index + 1}`)?.focus()
-    if (value && index === 5 && newOtp.every((d) => d !== '')) {
-      const matched = allUsers.find((u) => u.phone === phone.trim())
-      setTimeout(() => login(matched ? { id: matched.id, name: matched.name, phone: matched.phone } : { phone }).catch(() => {}), 300)
-    }
-  }
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      document.getElementById(`otp-${index - 1}`)?.focus()
-    }
-  }
-
   return (
     <div className="min-h-screen gradient-bg flex items-center justify-center relative overflow-hidden">
       <ParticleBackground />
@@ -162,7 +124,7 @@ export default function LoginPage() {
               className="text-center"
             >
               <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }}>
-                <h1 className="font-serif text-5xl md:text-6xl font-bold text-warmDark mb-3 text-shadow-warm">Life Memory Wall</h1>
+                <h1 className="font-serif text-5xl md:text-6xl font-bold text-warmDark mb-3 text-shadow-warm">The Inner Circle</h1>
                 <p className="font-handwriting text-2xl text-warmDark/60 mb-14">Your stories, beautifully preserved</p>
               </motion.div>
 
@@ -183,39 +145,7 @@ export default function LoginPage() {
                   <span className="font-sans text-warmDark group-hover:text-warmDark/80">Sign in with Email</span>
                 </button>
 
-                <button
-                  onClick={() => setScreen('phone')}
-                  className="w-full glass rounded-2xl py-4 px-6 flex items-center justify-center gap-3 hover:bg-white/60 transition-all duration-500 group"
-                >
-                  <Phone className="w-5 h-5 text-warmDark/55" />
-                  <span className="font-sans text-warmDark group-hover:text-warmDark/80">Sign in with Phone</span>
-                </button>
               </motion.div>
-
-              {/* Quick login */}
-              {allUsers.length > 0 && (
-                <motion.div className="mt-10" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="flex-1 h-px bg-warmMid/20" />
-                    <p className="text-warmDark/50 text-xs font-sans whitespace-nowrap">Quick login</p>
-                    <div className="flex-1 h-px bg-warmMid/20" />
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {allUsers.map((u) => (
-                      <button
-                        key={u.id}
-                        onClick={() => login({ id: u.id, name: u.name, email: u.email }).catch(() => {})}
-                        className="bg-white/60 border border-warmMid/20 rounded-full px-4 py-2 text-sm text-warmDark hover:bg-white/80 hover:shadow-md transition-all flex items-center gap-2 shadow-sm"
-                      >
-                        <span className="w-6 h-6 rounded-full bg-gradient-to-br from-gold/60 to-coral/50 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                          {u.name[0].toUpperCase()}
-                        </span>
-                        <span className="font-sans">{u.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
 
               <motion.p className="mt-6 text-warmDark/35 text-xs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.3 }}>
                 Your memories are safe and private
@@ -400,90 +330,6 @@ export default function LoginPage() {
                       className="w-full text-center text-warmDark/40 text-sm hover:text-warmDark/70 transition-colors">
                       Use a different email
                     </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          )}
-
-          {/* ===== PHONE SCREEN ===== */}
-          {screen === 'phone' && (
-            <motion.div
-              key="phone"
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.4 }}
-            >
-              <button onClick={resetAll} className="flex items-center gap-2 text-warmDark/50 hover:text-warmDark/70 mb-8 transition-colors">
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm">Back</span>
-              </button>
-
-              <h2 className="font-serif text-3xl text-warmDark mb-2">
-                {phoneStep === 'enter' ? 'Your phone number' : 'Enter the code'}
-              </h2>
-              <p className="font-handwriting text-lg text-warmDark/55 mb-8">
-                {phoneStep === 'enter' ? "We'll send you a verification code" : `Sent to +91 ${phone}`}
-              </p>
-
-              <AnimatePresence mode="wait">
-                {phoneStep === 'enter' ? (
-                  <motion.div key="phone-input" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
-                    <div>
-                      <label className="font-handwriting text-warmDark/50 text-base block mb-2">Phone number</label>
-                      <div className="flex gap-2">
-                        <div className="bg-white/40 rounded-2xl px-4 py-4 text-warmDark font-sans border border-white/50 flex items-center text-sm">+91</div>
-                        <input
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                          onKeyDown={(e) => e.key === 'Enter' && handleSendOtp()}
-                          placeholder="98765 43210"
-                          autoFocus
-                          className="flex-1 bg-white/40 rounded-2xl px-5 py-4 text-warmDark font-sans outline-none focus:ring-2 focus:ring-gold/30 transition-all border border-white/50 tracking-wider"
-                        />
-                      </div>
-                    </div>
-                    <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleSendOtp}
-                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-gold/80 to-coral/70 text-white font-serif text-lg">
-                      Send OTP
-                    </motion.button>
-                  </motion.div>
-                ) : (
-                  <motion.div key="otp-input" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
-                    <div className="flex gap-3 justify-center">
-                      {otp.map((digit, i) => (
-                        <input
-                          key={i}
-                          id={`otp-${i}`}
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={1}
-                          value={digit}
-                          onChange={(e) => handleOtpChange(i, e.target.value)}
-                          onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                          autoFocus={i === 0}
-                          className={`w-12 h-14 rounded-xl text-center text-xl font-serif outline-none transition-all border ${digit ? 'bg-white/60 border-gold/40 text-warmDark' : 'bg-white/30 border-white/50 text-warmDark/55'} focus:ring-2 focus:ring-gold/30 focus:border-gold/40`}
-                        />
-                      ))}
-                    </div>
-                    <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-                      onClick={() => {
-                        if (otp.every((d) => d !== '')) {
-                          const matched = allUsers.find((u) => u.phone === phone.trim())
-                          login(matched ? { id: matched.id, name: matched.name, phone: matched.phone } : { phone }).catch(() => {})
-                        }
-                      }}
-                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-gold/80 to-coral/70 text-white font-serif text-lg">
-                      Verify & Sign in
-                    </motion.button>
-                    <div className="text-center space-y-2">
-                      <button onClick={() => { setOtp(['', '', '', '', '', '']) }}
-                        className="text-gold/70 text-sm hover:text-gold transition-colors font-sans">Resend code</button>
-                      <button onClick={() => { setPhoneStep('enter'); setOtp(['', '', '', '', '', '']) }}
-                        className="block mx-auto text-warmDark/40 text-sm hover:text-warmDark/70 transition-colors">Change number</button>
-                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
