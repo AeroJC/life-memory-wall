@@ -83,6 +83,9 @@ export const api = {
   addReaction: (spaceId: string, memoryId: string, emoji: string) =>
     request<any>(`/spaces/${spaceId}/memories/${memoryId}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }),
 
+  getSubstories: (spaceId: string, memoryId: string) =>
+    request<any[]>(`/spaces/${spaceId}/memories/${memoryId}/substories`),
+
   addSubstory: (spaceId: string, memoryId: string, data: any) =>
     request<any>(`/spaces/${spaceId}/memories/${memoryId}/substories`, { method: 'POST', body: JSON.stringify(data) }),
 

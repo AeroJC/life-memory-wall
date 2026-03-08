@@ -47,6 +47,16 @@ export default function Timeline() {
     }
   }, [sortedMemories.length])
 
+  // Lazy load substories when a memory is selected
+  useEffect(() => {
+    if (!selectedMemoryId || !space) return
+    const memory = sortedMemories.find((m) => m.id === selectedMemoryId)
+    if (!memory || memory.substories !== undefined) return
+    api.getSubstories(space.id, selectedMemoryId).then((substories) => {
+      useStore.getState().updateMemorySubstories(space.id, selectedMemoryId, substories)
+    }).catch(() => {})
+  }, [selectedMemoryId])
+
   if (!space) return null
 
   const selectedMemory = sortedMemories.find((m) => m.id === selectedMemoryId) || null

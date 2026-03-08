@@ -25,6 +25,7 @@ interface AppState {
   deleteMemory: (spaceId: string, memoryId: string) => Promise<void>
   addReaction: (spaceId: string, memoryId: string, emoji: string) => Promise<void>
   addSubstory: (spaceId: string, memoryId: string, substory: SubStory) => Promise<void>
+  updateMemorySubstories: (spaceId: string, memoryId: string, substories: SubStory[]) => void
 
   addSpace: (space: MemorySpace) => Promise<void>
   updateSpace: (spaceId: string, data: { title?: string; coverEmoji?: string; description?: string }) => Promise<void>
@@ -183,6 +184,17 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (err) {
       console.error('Failed to add reaction:', err)
     }
+  },
+
+  updateMemorySubstories: (spaceId, memoryId, substories) => {
+    set((state) => ({
+      activeSpaceData: state.activeSpaceData?.id === spaceId ? {
+        ...state.activeSpaceData,
+        memories: state.activeSpaceData.memories.map((m) =>
+          m.id === memoryId ? { ...m, substories } : m
+        ),
+      } : state.activeSpaceData,
+    }))
   },
 
   addSubstory: async (spaceId, memoryId, substory) => {
