@@ -1,9 +1,9 @@
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Users, Send, Copy, Check } from 'lucide-react'
+import { ArrowLeft, Users, Send, Copy, Check, Mail, Loader2, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { api } from '../api'
-import { Memory, SubStory } from '../types'
+import { Memory, SubStory, SpacePendingInvite } from '../types'
 import MemoryCard from './MemoryCard'
 import MemoryDetail from './MemoryDetail'
 import CreateMemoryModal from './CreateMemoryModal'
@@ -25,10 +25,14 @@ export default function Timeline() {
   }
 
   const [showMembers, setShowMembers] = useState(false)
+  const [membersTab, setMembersTab] = useState<'members' | 'invites'>('members')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteStatus, setInviteStatus] = useState<{ ok: boolean; msg: string } | null>(null)
   const [inviting, setInviting] = useState(false)
   const [codeCopied, setCodeCopied] = useState(false)
+  const [pendingInvitesList, setPendingInvitesList] = useState<SpacePendingInvite[]>([])
+  const [invitesLoading, setInvitesLoading] = useState(false)
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
 
 
   const { scrollYProgress } = useScroll()
@@ -57,7 +61,20 @@ export default function Timeline() {
     }).catch(() => {})
   }, [selectedMemoryId])
 
-  if (!space) return null
+  if (!space) {
+    return (
+      <div className="min-h-screen gradient-bg flex flex-col items-center justify-center gap-5">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-2 border-gold/20 border-t-gold animate-spin" style={{ animationDuration: '1.2s' }} />
+          <div className="absolute inset-[5px] rounded-full border-2 border-coral/20 border-t-coral/60 animate-spin" style={{ animationDuration: '0.8s', animationDirection: 'reverse' }} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-2 h-2 rounded-full bg-gold/50" />
+          </div>
+        </div>
+        <p className="font-handwriting text-xl text-warmDark/45">opening your memories...</p>
+      </div>
+    )
+  }
 
   const selectedMemory = sortedMemories.find((m) => m.id === selectedMemoryId) || null
   const isDetailOpen = selectedMemory !== null
@@ -145,6 +162,25 @@ export default function Timeline() {
     setTimeout(() => setCodeCopied(false), 2000)
   }
 
+  const loadPendingInvites = async () => {
+    if (!canInvite) return
+    setInvitesLoading(true)
+    try {
+      const list = await api.getSpacePendingInvites(space.id)
+      setPendingInvitesList(list)
+    } catch {}
+    finally { setInvitesLoading(false) }
+  }
+
+  const handleCancelInvite = async (inviteId: string) => {
+    setCancellingId(inviteId)
+    try {
+      await api.cancelPendingInvite(space.id, inviteId)
+      setPendingInvitesList((prev) => prev.filter((i) => i.id !== inviteId))
+    } catch {}
+    finally { setCancellingId(null) }
+  }
+
   const InviteSection = canInvite ? (
     <div className="mt-4 pt-4 border-t border-warmMid/10 space-y-3">
       {space.inviteCode && (
@@ -222,14 +258,69 @@ export default function Timeline() {
     </>
   )
 
-  // Panel for normal mode — shows all space members + invite
+  // Panel for normal mode — shows all space members + pending invites tab
   const SpaceMembersPanel = (
     <>
-      <div className="fixed inset-0 z-40" onClick={() => { setShowMembers(false); setInviteStatus(null) }} />
-      <div className="absolute right-0 top-9 z-50 bg-white/95 backdrop-blur-md border border-warmMid/15 rounded-2xl p-4 w-72 shadow-xl max-h-[80vh] overflow-y-auto">
-        <p className="font-serif text-sm text-warmDark mb-3">Members</p>
-        {renderMembersList(allActiveMembers)}
-        {InviteSection}
+      <div className="fixed inset-0 z-40" onClick={() => { setShowMembers(false); setInviteStatus(null); setMembersTab('members') }} />
+      <div className="absolute right-0 top-9 z-50 bg-white/95 backdrop-blur-md border border-warmMid/15 rounded-2xl w-72 shadow-xl max-h-[80vh] overflow-y-auto">
+        {/* Tab bar */}
+        <div className="flex border-b border-warmMid/10">
+          <button
+            onClick={() => setMembersTab('members')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-sans transition-colors ${membersTab === 'members' ? 'text-warmDark border-b-2 border-gold/60' : 'text-warmDark/40 hover:text-warmDark/60'}`}
+          >
+            <Users className="w-3.5 h-3.5" /> Members
+          </button>
+          {canInvite && (
+            <button
+              onClick={() => { setMembersTab('invites'); if (membersTab !== 'invites') loadPendingInvites() }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-sans transition-colors ${membersTab === 'invites' ? 'text-warmDark border-b-2 border-gold/60' : 'text-warmDark/40 hover:text-warmDark/60'}`}
+            >
+              <Mail className="w-3.5 h-3.5" /> Pending
+            </button>
+          )}
+        </div>
+
+        <div className="p-4">
+          {membersTab === 'members' ? (
+            <>
+              {renderMembersList(allActiveMembers)}
+              {InviteSection}
+            </>
+          ) : (
+            invitesLoading ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-warmDark/40">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-xs font-sans">Loading...</span>
+              </div>
+            ) : pendingInvitesList.length === 0 ? (
+              <p className="text-center font-handwriting text-warmDark/35 py-8">No pending invites</p>
+            ) : (
+              <ul className="space-y-2">
+                {pendingInvitesList.map((inv) => (
+                  <li key={inv.id} className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-lavender/60 to-peach/60 flex items-center justify-center text-xs font-sans text-warmDark flex-shrink-0">
+                      {inv.email.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-sans text-xs text-warmDark/70 flex-1 truncate">{inv.email}</span>
+                    {inv.status === 'rejected' ? (
+                      <span className="text-[10px] font-sans text-coral/70 bg-coral/10 px-2 py-0.5 rounded-full flex-shrink-0">declined</span>
+                    ) : (
+                      <button
+                        onClick={() => handleCancelInvite(inv.id)}
+                        disabled={cancellingId === inv.id}
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-warmDark/30 hover:text-coral/70 hover:bg-coral/10 transition-colors flex-shrink-0 disabled:opacity-40"
+                        title="Cancel invite"
+                      >
+                        {cancellingId === inv.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
+        </div>
       </div>
     </>
   )

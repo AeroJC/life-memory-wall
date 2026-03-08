@@ -65,6 +65,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
     }
   }
 
+  const substoriesLoaded = memory.substories !== undefined
   const substories = memory.substories || []
 
   const groupedByDate: Record<string, SubStory[]> = {}
@@ -109,9 +110,15 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
     setShowAddForm(true)
   }
 
-  const allPhotos = substories
-    .filter((s) => s.type !== 'text')
-    .map((s) => ({ title: s.title || '', caption: s.caption || '', date: s.date, photos: s.photos || [] }))
+  const coverGroup = memory.photos?.length
+    ? [{ title: memory.title, caption: 'Cover photos', date: memory.date, photos: memory.photos }]
+    : []
+  const allPhotos = [
+    ...coverGroup,
+    ...substories
+      .filter((s) => s.type !== 'text')
+      .map((s) => ({ title: s.title || '', caption: s.caption || '', date: s.date, photos: s.photos || [] })),
+  ]
 
   // Flat list of all photo items for Photos tab grid
   const gridItems = allPhotos.flatMap((photo, i) =>
@@ -278,7 +285,15 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              {substories.length === 0 ? (
+              {!substoriesLoaded ? (
+                <div className="py-12 flex flex-col items-center gap-3">
+                  <div className="relative w-10 h-10">
+                    <div className="absolute inset-0 rounded-full border-2 border-gold/20 border-t-gold animate-spin" style={{ animationDuration: '1.2s' }} />
+                    <div className="absolute inset-[4px] rounded-full border border-coral/20 border-t-coral/60 animate-spin" style={{ animationDuration: '0.8s', animationDirection: 'reverse' }} />
+                  </div>
+                  <p className="font-handwriting text-lg text-warmDark/40">loading stories...</p>
+                </div>
+              ) : substories.length === 0 ? (
                 <div className="py-16">
                   <p className="font-handwriting text-3xl text-warmDark/35 mb-2">No stories yet</p>
                   <p className="font-sans text-sm text-warmDark/30">Add moments from this memory</p>

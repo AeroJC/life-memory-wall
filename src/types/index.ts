@@ -70,3 +70,21 @@ export interface User {
   phone?: string
   password?: string
 }
+
+export interface PendingInvite {
+  id: string
+  spaceId: string
+  spaceName: string
+  spaceEmoji: string
+  invitedBy: string
+  status: 'pending' | 'rejected'
+  createdAt: string
+}
+
+export interface SpacePendingInvite {
+  id: string
+  email: string
+  invitedBy: string
+  status: 'pending' | 'rejected'
+  createdAt: string
+}

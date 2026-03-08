@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { Memory, MemorySpace, SubStory, User, SpaceMember, JoinRequest } from '../types'
+import { Memory, MemorySpace, SubStory, User, SpaceMember, JoinRequest, PendingInvite } from '../types'
 import { api, setToken, clearToken } from '../api'
 
 interface AppState {
@@ -10,11 +10,15 @@ interface AppState {
   activeSpaceId: string | null
   activeSpaceData: MemorySpace | null
   loading: boolean
+  pendingInvites: PendingInvite[]
 
   init: () => Promise<void>
   login: (user?: Partial<User>) => Promise<void>
   logout: () => void
   fetchSpaces: () => Promise<void>
+  fetchMyInvites: () => Promise<void>
+  acceptSpaceInvite: (spaceId: string) => Promise<void>
+  rejectSpaceInvite: (spaceId: string) => Promise<void>
   setActiveSpace: (id: string | null) => Promise<void>
   getActiveSpace: () => MemorySpace | null
   getVisibleSpaces: () => MemorySpace[]
@@ -44,6 +48,7 @@ export const useStore = create<AppState>((set, get) => ({
   activeSpaceId: null,
   activeSpaceData: null,
   loading: false,
+  pendingInvites: [],
 
   init: async () => {
     const token = localStorage.getItem('token')
@@ -55,11 +60,8 @@ export const useStore = create<AppState>((set, get) => ({
       const result = await api.login({ id: token })
       setToken(result.token)
       set({ isLoggedIn: true, currentUser: result.user })
-      await get().fetchSpaces()
-      const savedSpaceId = localStorage.getItem('activeSpaceId')
-      if (savedSpaceId) {
-        await get().setActiveSpace(savedSpaceId)
-      }
+      localStorage.removeItem('activeSpaceId')
+      await Promise.all([get().fetchSpaces(), get().fetchMyInvites()])
       set({ initialized: true })
     } catch {
       clearToken()
@@ -77,29 +79,50 @@ export const useStore = create<AppState>((set, get) => ({
       password: (user as any)?.password,
     })
     setToken(result.token)
+    localStorage.removeItem('activeSpaceId')
     set({ isLoggedIn: true, currentUser: result.user })
-    await get().fetchSpaces()
+    await Promise.all([get().fetchSpaces(), get().fetchMyInvites()])
   },
 
   logout: () => {
     clearToken()
     localStorage.removeItem('activeSpaceId')
-    set({ isLoggedIn: false, currentUser: null, spaces: [], activeSpaceId: null, activeSpaceData: null })
+    set({ isLoggedIn: false, currentUser: null, spaces: [], activeSpaceId: null, activeSpaceData: null, pendingInvites: [] })
+  },
+
+  fetchMyInvites: async () => {
+    try {
+      const invites = await api.getMyInvites()
+      set({ pendingInvites: invites })
+    } catch {}
+  },
+
+  acceptSpaceInvite: async (spaceId) => {
+    await api.acceptInvite(spaceId)
+    set((state) => ({ pendingInvites: state.pendingInvites.filter((inv) => inv.spaceId !== spaceId) }))
+    await get().fetchSpaces()
+  },
+
+  rejectSpaceInvite: async (spaceId) => {
+    await api.rejectInvite(spaceId)
+    set((state) => ({ pendingInvites: state.pendingInvites.filter((inv) => inv.spaceId !== spaceId) }))
   },
 
   fetchSpaces: async () => {
+    set({ loading: true })
     try {
       const spaces = await api.getSpaces()
-      set({ spaces })
+      set({ spaces, loading: false })
     } catch (err) {
       console.error('Failed to fetch spaces:', err)
+      set({ loading: false })
     }
   },
 
   setActiveSpace: async (id) => {
     if (!id) {
       localStorage.removeItem('activeSpaceId')
-      set({ activeSpaceId: null, activeSpaceData: null })
+      set({ activeSpaceId: null, activeSpaceData: null, loading: true })
       await get().fetchSpaces()
       return
     }

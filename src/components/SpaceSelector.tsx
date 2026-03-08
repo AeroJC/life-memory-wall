@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check } from 'lucide-react'
+import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, KeyRound } from 'lucide-react'
 import { useState } from 'react'
 import { useStore } from '../store/useStore'
+import { api } from '../api'
 import { MemorySpace } from '../types'
 import ParticleBackground from './ParticleBackground'
 
@@ -127,10 +128,10 @@ const spaceColors = [
   'from-lime-200/60 to-emerald-200/60',
 ]
 
-type Modal = 'none' | 'create' | 'members' | 'edit-space'
+type Modal = 'none' | 'create' | 'members' | 'edit-space' | 'change-password'
 
 export default function SpaceSelector() {
-  const { getVisibleSpaces, setActiveSpace, addSpace, updateSpace, deleteSpace, logout, currentUser, spaces } = useStore()
+  const { getVisibleSpaces, setActiveSpace, addSpace, updateSpace, deleteSpace, logout, currentUser, spaces, loading, pendingInvites, acceptSpaceInvite, rejectSpaceInvite } = useStore()
   const visibleSpaces = getVisibleSpaces()
 
   const [modal, setModal] = useState<Modal>('none')
@@ -146,9 +147,21 @@ export default function SpaceSelector() {
   const [editTitle, setEditTitle] = useState('')
   const [editEmoji, setEditEmoji] = useState('✨')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [showInvites, setShowInvites] = useState(false)
+  const [inviteActionId, setInviteActionId] = useState<string | null>(null)
+  const [oldPassword, setOldPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showOld, setShowOld] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+  const [pwError, setPwError] = useState('')
+  const [pwSuccess, setPwSuccess] = useState(false)
+  const [pwLoading, setPwLoading] = useState(false)
 
   const handleCreate = async () => {
-    if (!newTitle.trim()) return
+    if (!newTitle.trim() || creating) return
+    setCreating(true)
     const space: MemorySpace = {
       id: `space-${Date.now()}`,
       title: newTitle,
@@ -162,11 +175,15 @@ export default function SpaceSelector() {
       description: newDescription,
       memories: [],
     }
-    await addSpace(space)
-    setNewTitle('')
-    setNewEmoji('✨')
-    setNewDescription(randomTagline('✨'))
-    setModal('none')
+    try {
+      await addSpace(space)
+      setNewTitle('')
+      setNewEmoji('✨')
+      setNewDescription(randomTagline('✨'))
+      setModal('none')
+    } finally {
+      setCreating(false)
+    }
   }
 
   const openEditSpace = (space: MemorySpace) => {
@@ -190,11 +207,49 @@ export default function SpaceSelector() {
   const viewingSpace = spaces.find((s) => s.id === viewingSpaceId)
   const editingSpace = spaces.find((s) => s.id === editingSpaceId)
 
+  const handleChangePassword = async () => {
+    setPwError('')
+    if (!oldPassword || !newPassword || !confirmPassword) { setPwError('All fields are required'); return }
+    if (newPassword.length < 6) { setPwError('New password must be at least 6 characters'); return }
+    if (newPassword !== confirmPassword) { setPwError('Passwords do not match'); return }
+    setPwLoading(true)
+    try {
+      await api.changePassword(oldPassword, newPassword)
+      setPwSuccess(true)
+      setOldPassword(''); setNewPassword(''); setConfirmPassword('')
+      setTimeout(() => { setPwSuccess(false); setModal('none') }, 1500)
+    } catch (err: any) {
+      setPwError(err.message || 'Failed to change password')
+    } finally {
+      setPwLoading(false)
+    }
+  }
+
   const closeModal = () => {
     setModal('none')
     setViewingSpaceId(null)
     setEditingSpaceId(null)
     setDeleteConfirmId(null)
+    setOldPassword(''); setNewPassword(''); setConfirmPassword('')
+    setPwError(''); setPwSuccess(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen gradient-bg flex flex-col items-center justify-center gap-5">
+        <ParticleBackground />
+        <div className="relative z-10 flex flex-col items-center gap-5">
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-2 border-gold/20 border-t-gold animate-spin" style={{ animationDuration: '1.2s' }} />
+            <div className="absolute inset-[5px] rounded-full border-2 border-coral/20 border-t-coral/60 animate-spin" style={{ animationDuration: '0.8s', animationDirection: 'reverse' }} />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-gold/50" />
+            </div>
+          </div>
+          <p className="font-handwriting text-xl text-warmDark/45">loading your spaces...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -210,6 +265,19 @@ export default function SpaceSelector() {
           className="text-center mb-12"
         >
           <div className="absolute top-6 right-6 flex items-center gap-3">
+            {/* Pending invites bell */}
+            {pendingInvites.length > 0 && (
+              <button
+                onClick={() => setShowInvites((v) => !v)}
+                className="relative text-warmDark/45 hover:text-warmDark/70 transition-colors"
+                title="Space invites"
+              >
+                <Mail className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-coral rounded-full text-white text-[9px] font-bold flex items-center justify-center">
+                  {pendingInvites.length}
+                </span>
+              </button>
+            )}
             {visibleSpaces.length > 0 && (
               <button
                 onClick={() => { setEditPageMode((v) => !v); setDeleteConfirmId(null) }}
@@ -218,10 +286,75 @@ export default function SpaceSelector() {
                 {editPageMode ? 'Done' : 'Edit'}
               </button>
             )}
+            <button
+              onClick={() => setModal('change-password')}
+              className="text-warmDark/45 hover:text-warmDark/70 transition-colors"
+              title="Change password"
+            >
+              <KeyRound className="w-4 h-4" />
+            </button>
             <button onClick={logout} className="text-warmDark/45 hover:text-warmDark/70 text-sm transition-colors">
               Sign out
             </button>
           </div>
+
+          {/* Pending invites panel */}
+          <AnimatePresence>
+            {showInvites && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute top-16 right-6 z-20 bg-white/95 backdrop-blur-md border border-warmMid/15 rounded-2xl shadow-xl w-80 overflow-hidden"
+              >
+                <div className="px-4 pt-4 pb-2 border-b border-warmMid/10 flex items-center justify-between">
+                  <p className="font-serif text-base text-warmDark">Space invitations</p>
+                  <button onClick={() => setShowInvites(false)} className="text-warmDark/40 hover:text-warmDark/70">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="divide-y divide-warmMid/8 max-h-80 overflow-y-auto">
+                  {pendingInvites.map((inv) => (
+                    <div key={inv.id} className="px-4 py-3 flex items-center gap-3">
+                      <span className="text-2xl flex-shrink-0">{inv.spaceEmoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-sans text-sm text-warmDark font-medium truncate">{inv.spaceName}</p>
+                        <p className="font-sans text-xs text-warmDark/40">You've been invited</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          disabled={inviteActionId === inv.spaceId}
+                          onClick={async () => {
+                            setInviteActionId(inv.spaceId)
+                            await acceptSpaceInvite(inv.spaceId)
+                            setInviteActionId(null)
+                            if (pendingInvites.length <= 1) setShowInvites(false)
+                          }}
+                          className="w-7 h-7 rounded-full bg-teal/15 hover:bg-teal/30 flex items-center justify-center transition-colors disabled:opacity-50"
+                          title="Accept"
+                        >
+                          <Check className="w-3.5 h-3.5 text-teal" />
+                        </button>
+                        <button
+                          disabled={inviteActionId === inv.spaceId}
+                          onClick={async () => {
+                            setInviteActionId(inv.spaceId)
+                            await rejectSpaceInvite(inv.spaceId)
+                            setInviteActionId(null)
+                            if (pendingInvites.length <= 1) setShowInvites(false)
+                          }}
+                          className="w-7 h-7 rounded-full bg-coral/15 hover:bg-coral/30 flex items-center justify-center transition-colors disabled:opacity-50"
+                          title="Decline"
+                        >
+                          <X className="w-3.5 h-3.5 text-coral" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {currentUser && (
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
@@ -433,7 +566,9 @@ export default function SpaceSelector() {
                     </div>
                     <div className="flex gap-3 pt-2">
                       <button onClick={closeModal} className="flex-1 py-3 rounded-xl text-warmDark/55 hover:bg-white/30 transition-all">Cancel</button>
-                      <button onClick={handleCreate} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-gold/80 to-coral/80 text-white font-medium">Create Space</button>
+                      <button onClick={handleCreate} disabled={creating} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-gold/80 to-coral/80 text-white font-medium disabled:opacity-60 flex items-center justify-center gap-2">
+                        {creating ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</> : 'Create Space'}
+                      </button>
                     </div>
                   </div>
                 </>
@@ -483,6 +618,84 @@ export default function SpaceSelector() {
                       <button onClick={closeModal} className="flex-1 py-3 rounded-xl text-warmDark/55 hover:bg-white/30 transition-all">Cancel</button>
                       <button onClick={handleSaveSpace} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-gold/80 to-coral/80 text-white font-medium flex items-center justify-center gap-2">
                         <Check className="w-4 h-4" /> Save
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* CHANGE PASSWORD */}
+              {modal === 'change-password' && (
+                <>
+                  <h2 className="font-serif text-2xl text-warmDark mb-2">Change password</h2>
+                  <p className="font-handwriting text-lg text-warmDark/50 mb-6">Keep your account secure</p>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="font-handwriting text-warmDark/55 text-base block mb-2">Current password</label>
+                      <div className="relative">
+                        <input
+                          type={showOld ? 'text' : 'password'}
+                          value={oldPassword}
+                          onChange={(e) => { setOldPassword(e.target.value); setPwError('') }}
+                          placeholder="Enter current password"
+                          autoFocus
+                          className="w-full bg-white/50 rounded-xl px-4 py-3 pr-11 text-warmDark font-sans outline-none focus:ring-2 focus:ring-gold/30 transition-all"
+                        />
+                        <button type="button" onClick={() => setShowOld((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-warmDark/35 hover:text-warmDark/60 transition-colors">
+                          {showOld ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="font-handwriting text-warmDark/55 text-base block mb-2">New password</label>
+                      <div className="relative">
+                        <input
+                          type={showNew ? 'text' : 'password'}
+                          value={newPassword}
+                          onChange={(e) => { setNewPassword(e.target.value); setPwError('') }}
+                          placeholder="At least 6 characters"
+                          className="w-full bg-white/50 rounded-xl px-4 py-3 pr-11 text-warmDark font-sans outline-none focus:ring-2 focus:ring-gold/30 transition-all"
+                        />
+                        <button type="button" onClick={() => setShowNew((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-warmDark/35 hover:text-warmDark/60 transition-colors">
+                          {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="font-handwriting text-warmDark/55 text-base block mb-2">Confirm new password</label>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => { setConfirmPassword(e.target.value); setPwError('') }}
+                        onKeyDown={(e) => e.key === 'Enter' && handleChangePassword()}
+                        placeholder="Repeat new password"
+                        className="w-full bg-white/50 rounded-xl px-4 py-3 text-warmDark font-sans outline-none focus:ring-2 focus:ring-gold/30 transition-all"
+                      />
+                    </div>
+
+                    {pwError && (
+                      <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                        className="text-sm text-coral font-sans bg-coral/10 rounded-xl px-4 py-2">
+                        {pwError}
+                      </motion.p>
+                    )}
+                    {pwSuccess && (
+                      <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                        className="text-sm text-teal font-sans bg-teal/10 rounded-xl px-4 py-2 flex items-center gap-2">
+                        <Check className="w-4 h-4" /> Password changed successfully!
+                      </motion.p>
+                    )}
+
+                    <div className="flex gap-3 pt-2">
+                      <button onClick={closeModal} className="flex-1 py-3 rounded-xl text-warmDark/55 hover:bg-white/30 transition-all">Cancel</button>
+                      <button
+                        onClick={handleChangePassword}
+                        disabled={pwLoading || pwSuccess}
+                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-gold/80 to-coral/80 text-white font-medium disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {pwLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : 'Update password'}
                       </button>
                     </div>
                   </div>

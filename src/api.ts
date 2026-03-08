@@ -100,4 +100,24 @@ export const api = {
 
   deleteSpace: (spaceId: string) =>
     request<any>(`/spaces/${spaceId}`, { method: 'DELETE' }),
+
+  changePassword: (oldPassword: string, newPassword: string) =>
+    request<{ success: boolean }>('/auth/change-password', { method: 'POST', body: JSON.stringify({ oldPassword, newPassword }) }),
+
+  // Invites — user side
+  getMyInvites: () =>
+    request<any[]>('/spaces/my-invites'),
+
+  acceptInvite: (spaceId: string) =>
+    request<{ success: boolean }>(`/spaces/${spaceId}/accept-invite`, { method: 'POST' }),
+
+  rejectInvite: (spaceId: string) =>
+    request<{ success: boolean }>(`/spaces/${spaceId}/reject-invite`, { method: 'POST' }),
+
+  // Invites — admin side
+  getSpacePendingInvites: (spaceId: string) =>
+    request<any[]>(`/spaces/${spaceId}/pending-invites`),
+
+  cancelPendingInvite: (spaceId: string, inviteId: string) =>
+    request<{ success: boolean }>(`/spaces/${spaceId}/pending-invites/${inviteId}`, { method: 'DELETE' }),
 }
