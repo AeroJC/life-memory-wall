@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
 
 const EMOJI_CATEGORIES: Record<string, string[]> = {
   'Smileys': [
@@ -91,6 +92,9 @@ export default function RichTextEditor({ value, onChange, placeholder, className
         if (document.queryCommandState('italic')) active.add('italic')
         if (document.queryCommandState('underline')) active.add('underline')
         if (document.queryCommandState('strikeThrough')) active.add('strikeThrough')
+        if (document.queryCommandState('justifyLeft')) active.add('justifyLeft')
+        if (document.queryCommandState('justifyCenter')) active.add('justifyCenter')
+        if (document.queryCommandState('justifyRight')) active.add('justifyRight')
       } catch { /* ignore */ }
       setActiveFormats(active)
     }
@@ -162,6 +166,21 @@ export default function RichTextEditor({ value, onChange, placeholder, className
           className={`${fmtBtn(isActive('underline'))} w-8 underline`} title="Underline">U</button>
         <button type="button" onMouseDown={(e) => applyFormat(e, 'strikeThrough')}
           className={`${fmtBtn(isActive('strikeThrough'))} w-8 line-through`} title="Strikethrough">S</button>
+
+        <div className="w-px h-4 bg-warmMid/20 mx-0.5" />
+
+        <button type="button" onMouseDown={(e) => applyFormat(e, 'justifyLeft')}
+          className={`${fmtBtn(isActive('justifyLeft'))} w-8`} title="Align left">
+          <AlignLeft className="w-3.5 h-3.5" />
+        </button>
+        <button type="button" onMouseDown={(e) => applyFormat(e, 'justifyCenter')}
+          className={`${fmtBtn(isActive('justifyCenter'))} w-8`} title="Align center">
+          <AlignCenter className="w-3.5 h-3.5" />
+        </button>
+        <button type="button" onMouseDown={(e) => applyFormat(e, 'justifyRight')}
+          className={`${fmtBtn(isActive('justifyRight'))} w-8`} title="Align right">
+          <AlignRight className="w-3.5 h-3.5" />
+        </button>
 
         <div className="w-px h-4 bg-warmMid/20 mx-0.5" />
 

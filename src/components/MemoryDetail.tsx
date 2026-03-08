@@ -19,6 +19,17 @@ const formatDate = (dateStr: string) =>
 const formatDateFull = (dateStr: string) =>
   new Date(dateStr).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
+// Dynamically scale font size for text beside a photo — shorter text → bigger font
+function captionFontClass(html: string): string {
+  const len = (html || '').replace(/<[^>]*>/g, '').trim().length
+  if (len === 0) return 'text-sm'
+  if (len < 30)  return 'text-2xl leading-snug font-serif'
+  if (len < 60)  return 'text-xl leading-snug'
+  if (len < 110) return 'text-base leading-relaxed'
+  if (len < 200) return 'text-sm leading-relaxed'
+  return 'text-xs leading-relaxed'
+}
+
 const storyGradients = [
   'from-lavender/40 to-purple-100/30',
   'from-peach/40 to-amber-100/30',
@@ -120,7 +131,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
     if (!coverPhoto || !coverRef.current) return
     const obs = new IntersectionObserver(
       ([entry]) => setCoverGone(!entry.isIntersecting),
-      { threshold: 0.15 }
+      { threshold: 0.05 }
     )
     obs.observe(coverRef.current)
     return () => obs.disconnect()
@@ -139,26 +150,58 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
 
   return (
     <div className="h-full overflow-y-auto">
-      {/* Always-visible edit toggle — zero-height sticky overlay, never pushes content */}
-      <div className="sticky top-3 z-20 h-0 flex justify-end px-3 pointer-events-none">
-        <button
-          onClick={() => { setEditMode((v) => !v); if (editMode) resetForm() }}
-          title={editMode ? 'Done editing' : 'Edit moments'}
-          className={`pointer-events-auto w-8 h-8 rounded-full shadow-md flex items-center justify-center transition-all ${
-            editMode
-              ? 'bg-coral/20 text-coral ring-1 ring-coral/30'
-              : 'bg-white/80 backdrop-blur-sm text-warmDark/40 hover:text-warmDark'
-          }`}
-        >
-          <Pencil className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
       {/* Cover photo — scrolls away naturally */}
       {coverPhoto && (
-        <div ref={coverRef} className="relative h-48 overflow-hidden flex-shrink-0">
-          <img src={coverPhoto} alt={memory.title} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        <div ref={coverRef} className="relative flex-shrink-0 h-56 overflow-hidden">
+          <img src={coverPhoto} alt={memory.title} className="w-full h-full object-cover object-center" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent pointer-events-none" />
+          {/* Info + tabs overlaid at the bottom of cover */}
+          <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
+            <div className="flex items-end justify-between gap-2 mb-1">
+              <div className="min-w-0 flex-1">
+                <h2 className="font-serif text-base text-white leading-snug">{memory.title}</h2>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="font-handwriting text-xs text-white/75">
+                    {formatDateFull(memory.date)}
+                    {memory.endDate && ` — ${formatDateFull(memory.endDate)}`}
+                  </span>
+                  {memory.location && (
+                    <span className="flex items-center gap-1 text-white/55 text-xs">
+                      <MapPin className="w-3 h-3" />
+                      {memory.location}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={() => setActiveTab('timeline')}
+                  title="Stories"
+                  className={`p-1.5 rounded-lg transition-all ${activeTab === 'timeline' ? 'bg-white/25 text-white' : 'text-white/45 hover:text-white'}`}
+                >
+                  <BookOpen className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setActiveTab('photos')}
+                  title="Photos"
+                  className={`p-1.5 rounded-lg transition-all ${activeTab === 'photos' ? 'bg-white/25 text-white' : 'text-white/45 hover:text-white'}`}
+                >
+                  <Camera className="w-4 h-4" />
+                </button>
+                <div className="w-px h-4 bg-white/20 mx-0.5" />
+                <button
+                  onClick={() => { setEditMode((v) => !v); if (editMode) resetForm() }}
+                  title={editMode ? 'Done editing' : 'Edit moments'}
+                  className={`p-1.5 rounded-lg transition-all ${editMode ? 'bg-coral/40 text-white' : 'text-white/45 hover:text-white'}`}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+            {memory.story && (
+              <p className="font-sans text-xs text-white/65 leading-relaxed line-clamp-2">{memory.story}</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -194,7 +237,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
               </p>
             )}
           </div>
-          <div className="flex gap-1 flex-shrink-0 mt-0.5">
+          <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
             <button
               onClick={() => setActiveTab('timeline')}
               title="Stories"
@@ -208,6 +251,16 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
               className={`p-1.5 rounded-lg transition-all ${activeTab === 'photos' ? 'bg-gold/20 text-warmDark' : 'text-warmDark/35 hover:text-warmDark/55'}`}
             >
               <Camera className="w-4 h-4" />
+            </button>
+            <div className="w-px h-4 bg-warmMid/20 mx-0.5" />
+            <button
+              onClick={() => { setEditMode((v) => !v); if (editMode) resetForm() }}
+              title={editMode ? 'Done editing' : 'Edit moments'}
+              className={`p-1.5 rounded-lg transition-all ${
+                editMode ? 'bg-coral/10 text-coral' : 'text-warmDark/35 hover:text-warmDark/55'
+              }`}
+            >
+              <Pencil className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -305,7 +358,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
                                       )}
                                     </div>
                                     {sub.caption && (
-                                      <div className="font-sans text-sm text-warmDark/90 leading-relaxed flex-1" dangerouslySetInnerHTML={{ __html: sub.caption }} />
+                                      <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sub.caption }} />
                                     )}
                                   </div>
                                 </div>
@@ -317,7 +370,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
                                   {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
                                   <div className="flex gap-3 items-center">
                                     {sub.caption && (
-                                      <div className="font-sans text-sm text-warmDark/90 leading-relaxed flex-1" dangerouslySetInnerHTML={{ __html: sub.caption }} />
+                                      <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sub.caption }} />
                                     )}
                                     <div className="w-1/2 flex-shrink-0 bg-black/5 rounded-xl overflow-hidden">
                                       {sub.photos && sub.photos.length > 0 ? (

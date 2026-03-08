@@ -1,5 +1,5 @@
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Users, Send } from 'lucide-react'
+import { ArrowLeft, Users, Send, Copy, Check } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { api } from '../api'
@@ -28,6 +28,7 @@ export default function Timeline() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteStatus, setInviteStatus] = useState<{ ok: boolean; msg: string } | null>(null)
   const [inviting, setInviting] = useState(false)
+  const [codeCopied, setCodeCopied] = useState(false)
 
 
   const { scrollYProgress } = useScroll()
@@ -127,6 +128,58 @@ export default function Timeline() {
     }
   }
 
+  const handleCopyCode = () => {
+    if (!space.inviteCode) return
+    navigator.clipboard.writeText(space.inviteCode)
+    setCodeCopied(true)
+    setTimeout(() => setCodeCopied(false), 2000)
+  }
+
+  const InviteSection = canInvite ? (
+    <div className="mt-4 pt-4 border-t border-warmMid/10 space-y-3">
+      {space.inviteCode && (
+        <div>
+          <p className="font-sans text-xs text-warmDark/50 mb-1.5">Invite code</p>
+          <div className="flex items-center gap-2 bg-white/40 rounded-xl px-3 py-2">
+            <span className="font-mono text-sm text-warmDark tracking-widest flex-1">{space.inviteCode}</span>
+            <button
+              onClick={handleCopyCode}
+              className="text-warmDark/40 hover:text-warmDark transition-colors flex-shrink-0"
+              title="Copy code"
+            >
+              {codeCopied ? <Check className="w-3.5 h-3.5 text-teal" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+      )}
+      <div>
+        <p className="font-sans text-xs text-warmDark/50 mb-1.5">Invite by email</p>
+        <div className="flex gap-2">
+          <input
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
+            placeholder="email@example.com"
+            className="flex-1 bg-white/40 rounded-xl px-3 py-2 text-sm text-warmDark font-sans outline-none focus:ring-2 focus:ring-gold/30 transition-all"
+          />
+          <button
+            onClick={handleInvite}
+            disabled={inviting}
+            className="p-2 rounded-xl bg-gradient-to-br from-gold/80 to-coral/70 text-white flex-shrink-0 disabled:opacity-50"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
+        {inviteStatus && (
+          <p className={`text-xs mt-2 font-sans ${inviteStatus.ok ? 'text-teal' : 'text-coral'}`}>
+            {inviteStatus.msg}
+          </p>
+        )}
+      </div>
+    </div>
+  ) : null
+
   const renderMembersList = (members: typeof allActiveMembers) => (
     <ul className="space-y-2">
       {members.map((m) => (
@@ -144,16 +197,17 @@ export default function Timeline() {
     </ul>
   )
 
-  // Panel for detail mode — shows only who can see this memory
+  // Panel for detail mode — shows who can see this memory + invite
   const MemoryMembersPanel = (
     <>
-      <div className="fixed inset-0 z-40" onClick={() => setShowMembers(false)} />
+      <div className="fixed inset-0 z-40" onClick={() => { setShowMembers(false); setInviteStatus(null) }} />
       <div className="absolute right-0 top-9 z-50 glass rounded-2xl p-4 w-72 shadow-lg max-h-[80vh] overflow-y-auto">
         <p className="font-serif text-sm text-warmDark mb-1">Who can see this</p>
         <p className="font-sans text-xs text-warmDark/40 mb-3">
           {selectedMemory?.visibleTo && selectedMemory.visibleTo.length > 0 ? 'Specific people only' : 'Everyone in the space'}
         </p>
         {renderMembersList(memoryMembers)}
+        {InviteSection}
       </div>
     </>
   )
@@ -165,33 +219,7 @@ export default function Timeline() {
       <div className="absolute right-0 top-9 z-50 glass rounded-2xl p-4 w-72 shadow-lg max-h-[80vh] overflow-y-auto">
         <p className="font-serif text-sm text-warmDark mb-3">Members</p>
         {renderMembersList(allActiveMembers)}
-        {canInvite && (
-          <div className="mt-4 pt-4 border-t border-warmMid/10">
-            <p className="font-sans text-xs text-warmDark/50 mb-2">Invite by email</p>
-            <div className="flex gap-2">
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
-                placeholder="email@example.com"
-                className="flex-1 bg-white/40 rounded-xl px-3 py-2 text-sm text-warmDark font-sans outline-none focus:ring-2 focus:ring-gold/30 transition-all"
-              />
-              <button
-                onClick={handleInvite}
-                disabled={inviting}
-                className="p-2 rounded-xl bg-gradient-to-br from-gold/80 to-coral/70 text-white flex-shrink-0 disabled:opacity-50"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
-            {inviteStatus && (
-              <p className={`text-xs mt-2 font-sans ${inviteStatus.ok ? 'text-teal' : 'text-coral'}`}>
-                {inviteStatus.msg}
-              </p>
-            )}
-          </div>
-        )}
+        {InviteSection}
       </div>
     </>
   )
