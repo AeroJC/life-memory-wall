@@ -128,6 +128,30 @@ const spaceColors = [
   'from-lime-200/60 to-emerald-200/60',
 ]
 
+// Drifting Polaroids - layer config: near (0), mid (1), far (2)
+const polaroidLayers = [
+  { parallax: 18, blur: 0,   opacity: 1,    floatRange: 12, floatSpeed: 6,   zIndex: 30 },
+  { parallax: 9,  blur: 0.8, opacity: 0.90, floatRange: 8,  floatSpeed: 7.5, zIndex: 20 },
+  { parallax: 4,  blur: 2.5, opacity: 0.70, floatRange: 6,  floatSpeed: 9,   zIndex: 10 },
+]
+// [leftPct, topPct, rotateDeg]
+const polaroidPositions: [number, number, number][] = [
+  [28,  5,  -5],
+  [52, 20,   3],
+  [ 5, 27,  -8],
+  [68,  4,   6],
+  [40, 47,  -3],
+  [74, 43,   5],
+  [12, 54,  -6],
+  [57, 55,   7],
+  [82, 21,  -4],
+  [21, 64,   4],
+  [62, 63,  -5],
+]
+const layerCardWidths   = [176, 148, 120]
+const layerImageHeights = [136, 112, 90]
+const layerEmojiSizes   = ['text-5xl', 'text-4xl', 'text-3xl']
+
 type Modal = 'none' | 'create' | 'members' | 'edit-space' | 'change-password'
 
 export default function SpaceSelector() {
@@ -181,6 +205,9 @@ export default function SpaceSelector() {
 
   // Profile Menu
   const [showProfileMenu, setShowProfileMenu] = useState(false)
+
+  // Parallax mouse tracking
+  const [mouse, setMouse] = useState({ x: 0, y: 0 })
 
   const handleCreate = async () => {
     if (!newTitle.trim() || creating) return
@@ -248,6 +275,14 @@ export default function SpaceSelector() {
     }
   }
 
+  const handleMouseMoveCanvas = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setMouse({
+      x: (e.clientX - rect.left - rect.width  / 2) / rect.width,
+      y: (e.clientY - rect.top  - rect.height / 2) / rect.height,
+    })
+  }
+
   const closeModal = () => {
     setModal('none')
     setViewingSpaceId(null)
@@ -281,7 +316,7 @@ export default function SpaceSelector() {
     <div className="min-h-screen gradient-bg relative overflow-hidden">
       <ParticleBackground />
 
-      <div className="relative z-10 min-h-screen flex flex-col items-center px-4 py-12 md:py-20">
+      <div className="relative z-10 min-h-screen">
         {/* Top Right Controls */}
         <div className="absolute top-6 right-6 flex items-center gap-3 z-30">
             {/* Profile Menu Dropdown Container */}
@@ -472,126 +507,213 @@ export default function SpaceSelector() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-center mb-12 mt-8 md:mt-0"
+          className="relative z-20 text-center pt-16 pb-3 px-4 pointer-events-none"
         >
           {currentUser && (
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
-              className="font-handwriting text-lg text-warmDark/70 mb-4">
+              className="font-handwriting text-lg text-warmDark/70 mb-3">
               Hello, {currentUser.name}
             </motion.p>
           )}
-
-          <h1 className="font-serif text-3xl md:text-5xl text-warmDark mb-4">Where do you want to go today?</h1>
-          <p className="font-handwriting text-xl md:text-2xl text-warmDark/60">Choose a memory space to explore</p>
+          <h1 className="font-serif text-3xl md:text-5xl text-warmDark mb-2">Where do you want to go today?</h1>
+          <p className="font-handwriting text-xl md:text-2xl text-warmDark/55">Choose a memory space to explore</p>
         </motion.div>
 
-        {/* Space bubbles */}
-        <div ref={spacesContainerRef} className="flex flex-wrap justify-center gap-8 md:gap-10 max-w-5xl mb-12">
-          {visibleSpaces.map((space, i) => {
-            const isOwner = space.createdBy === currentUser?.id
-            const myRole = space.membersList.find((m) => m.userId === currentUser?.id)?.role
-            const isDelConfirm = deleteConfirmId === space.id
-            return (
-              <motion.div
-                key={space.id}
-                initial={{ opacity: 0, scale: 0.5, y: 30 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: i * 0.1, type: 'spring', stiffness: 100 }}
-                className="flex flex-col items-center"
-              >
-                <div className="relative">
-                  <motion.button
-                    whileHover={editPageMode ? {} : { scale: 1.08, y: -8 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => editPageMode ? undefined : setActiveSpace(space.id)}
-                    className={`group flex flex-col items-center relative ${editPageMode ? 'cursor-default' : ''}`}
-                    animate={editPageMode ? { rotate: [0, -2, 2, -1, 1, 0] } : { rotate: 0 }}
-                    transition={editPageMode ? { repeat: Infinity, duration: 0.6, repeatDelay: 0.1 } : {}}
-                  >
-                    <div className={`w-28 h-28 md:w-36 md:h-36 rounded-full bg-gradient-to-br ${spaceColors[i % spaceColors.length]}
-                      flex items-center justify-center shadow-lg transition-shadow duration-500
-                      border border-white/50 relative overflow-hidden ${!editPageMode ? 'group-hover:shadow-2xl' : ''}`}>
-                      <div className={`absolute inset-0 bg-white/20 transition-opacity duration-500 ${!editPageMode ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'}`} />
-                      <span className="text-4xl md:text-5xl relative z-10">{space.coverEmoji}</span>
-                    </div>
-                  </motion.button>
+        {/* ===== DRIFTING POLAROIDS CANVAS ===== */}
+        <div
+          ref={spacesContainerRef}
+          className="relative w-full"
+          style={{ height: 'calc(100vh - 185px)', minHeight: 500 }}
+          onMouseMove={handleMouseMoveCanvas}
+          onMouseLeave={() => setMouse({ x: 0, y: 0 })}
+        >
+          {/* Soft bokeh blobs */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute w-96 h-96 rounded-full bg-lavender/35 blur-3xl" style={{ top: '10%', left: '3%' }} />
+            <div className="absolute w-80 h-80 rounded-full bg-peach/30 blur-3xl" style={{ bottom: '8%', right: '8%' }} />
+            <div className="absolute w-56 h-56 rounded-full bg-gold/12 blur-3xl" style={{ top: '5%', right: '28%' }} />
+          </div>
 
-                  {/* Edit mode overlays */}
-                  {editPageMode && isOwner && (
-                    <>
-                      <button
-                        onClick={() => openEditSpace(space)}
-                        className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-warmDark/60 hover:text-warmDark transition-colors z-10 border border-warmMid/10"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      {!isDelConfirm ? (
-                        <button
-                          onClick={() => setDeleteConfirmId(space.id)}
-                          className="absolute -top-1 -left-1 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-coral/60 hover:text-coral transition-colors z-10 border border-warmMid/10"
+          {([...visibleSpaces, null] as any[]).map((space: any, i: number) => {
+            const isNew = space === null
+            const layer = i % 3
+            const layerCfg = polaroidLayers[layer]
+            const [leftPct, topPct, rotation] = polaroidPositions[i % polaroidPositions.length]
+
+            const parallaxX = mouse.x * layerCfg.parallax
+            const parallaxY = mouse.y * layerCfg.parallax
+
+            const cardWidth   = layerCardWidths[layer]
+            const imgHeight   = layerImageHeights[layer]
+            const emojiSz     = layerEmojiSizes[layer]
+
+            const isOwner     = !isNew && space.createdBy === currentUser?.id
+            const isDelConfirm = !isNew && deleteConfirmId === space.id
+
+            const visibleCount = !isNew
+              ? (space.memories?.length
+                  ? space.memories.filter((m: any) => {
+                      if (!m.visibleTo || m.visibleTo.length === 0) return true
+                      if (m.createdBy === currentUser?.id) return true
+                      return currentUser ? m.visibleTo.includes(currentUser.id) : false
+                    }).length
+                  : space.memoryCount)
+              : 0
+
+            return (
+              <div
+                key={isNew ? 'new-space' : space.id}
+                style={{
+                  position: 'absolute',
+                  left: `${leftPct}%`,
+                  top: `${topPct}%`,
+                  zIndex: layerCfg.zIndex,
+                  transform: `translate(${parallaxX}px, ${parallaxY}px)`,
+                  transition: 'transform 0.18s ease-out',
+                  filter: layerCfg.blur > 0 ? `blur(${layerCfg.blur}px)` : undefined,
+                  opacity: layerCfg.opacity,
+                }}
+              >
+                {/* Entry fade-in */}
+                <motion.div
+                  initial={{ opacity: 0, y: 40 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.65, delay: i * 0.11, type: 'spring', stiffness: 110, damping: 14 }}
+                >
+                  {/* Float + hover */}
+                  <motion.div
+                    className="group relative cursor-pointer"
+                    animate={{ y: [0, -(layerCfg.floatRange), 0] }}
+                    transition={{
+                      y: {
+                        duration: layerCfg.floatSpeed + i * 0.45,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                        delay: i * 0.38,
+                      },
+                    }}
+                    whileHover={editPageMode || isNew ? {} : {
+                      scale: 1.07,
+                      y: -(layerCfg.floatRange + 16),
+                      transition: { duration: 0.22, ease: 'easeOut' },
+                    }}
+                    whileTap={!editPageMode && !isNew ? { scale: 0.97 } : {}}
+                    onClick={() => {
+                      if (isNew) { setModal('create'); return }
+                      if (editPageMode) return
+                      setActiveSpace(space.id)
+                    }}
+                  >
+                    {/* Polaroid card */}
+                    <div
+                      className="relative bg-white select-none"
+                      style={{
+                        width: cardWidth,
+                        transform: `rotate(${rotation}deg)`,
+                        boxShadow: '0 8px 28px rgba(74,55,40,0.18), 0 2px 8px rgba(74,55,40,0.09)',
+                        borderRadius: 3,
+                      }}
+                    >
+                      {/* Gold glow ring on hover */}
+                      <div
+                        className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-10"
+                        style={{
+                          boxShadow: '0 0 0 2.5px rgba(212,165,116,0.70), 0 0 22px rgba(212,165,116,0.30)',
+                          borderRadius: 3,
+                        }}
+                      />
+
+                      {/* Photo area */}
+                      {isNew ? (
+                        <div
+                          className="flex items-center justify-center overflow-hidden"
+                          style={{ height: imgHeight, background: 'rgba(240,230,255,0.22)', borderRadius: '3px 3px 0 0' }}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                          <Plus className="text-warmMid/35" style={{ width: cardWidth * 0.16, height: cardWidth * 0.16 }} />
+                        </div>
                       ) : (
-                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-lg px-3 py-2 flex items-center gap-2 z-20 whitespace-nowrap border border-warmMid/10">
-                          <span className="text-xs text-warmDark/60 font-sans">Delete?</span>
-                          <button onClick={() => handleDeleteSpace(space.id)} className="text-xs text-coral font-medium hover:text-coral/70">Yes</button>
-                          <button onClick={() => setDeleteConfirmId(null)} className="text-xs text-warmDark/40 hover:text-warmDark/60">No</button>
+                        <div
+                          className={`flex items-center justify-center overflow-hidden bg-gradient-to-br ${spaceColors[i % spaceColors.length]}`}
+                          style={{ height: imgHeight, borderRadius: '3px 3px 0 0' }}
+                        >
+                          <span className={emojiSz}>{space.coverEmoji}</span>
                         </div>
                       )}
-                    </>
-                  )}
-                </div>
 
-                <div className="mt-3 text-center">
-                  <h3 className="font-serif text-base md:text-lg text-warmDark font-medium">{space.title}</h3>
-                  {(() => {
-                    const visibleCount = space.memories?.length
-                      ? space.memories.filter((m) => {
-                          if (!m.visibleTo || m.visibleTo.length === 0) return true
-                          if (m.createdBy === currentUser?.id) return true
-                          return currentUser ? m.visibleTo.includes(currentUser.id) : false
-                        }).length
-                      : space.memoryCount
-                    return (
-                      <p className="font-handwriting text-warmDark/70 text-sm">
-                        {visibleCount} {visibleCount === 1 ? 'memory' : 'memories'}
-                      </p>
-                    )
-                  })()}
-                  {space.type === 'group' && (
-                    <button
-                      onClick={() => { if (!editPageMode) { setViewingSpaceId(space.id); setModal('members') } }}
-                      className="flex items-center gap-1 mx-auto mt-1 text-xs text-warmDark/65 hover:text-warmDark/80 transition-colors"
-                    >
-                      <Users className="w-3 h-3" />
-                      <span>{space.membersList.filter((m) => m.status === 'active').length} members</span>
-                      {isOwner && <Crown className="w-3 h-3 text-gold/60" />}
-                    </button>
-                  )}
-                  {space.type === 'group' && myRole && myRole !== 'owner' && (
-                    <p className="text-xs text-warmDark/35 mt-0.5">{myRole === 'admin' ? 'Admin' : 'Member'}</p>
-                  )}
-                </div>
-              </motion.div>
+                      {/* Polaroid label */}
+                      <div className="bg-white px-3 pt-2.5 pb-3" style={{ borderRadius: '0 0 3px 3px' }}>
+                        {isNew ? (
+                          <p className="font-handwriting text-warmMid/45 text-center" style={{ fontSize: 13 }}>
+                            new space
+                          </p>
+                        ) : (
+                          <>
+                            <p
+                              className="font-handwriting text-warmDark font-medium leading-snug"
+                              style={{ fontSize: layer === 0 ? 16 : layer === 1 ? 14 : 12 }}
+                            >
+                              {space.title}
+                            </p>
+                            <p
+                              className="font-handwriting text-warmDark/50 mt-0.5"
+                              style={{ fontSize: layer === 0 ? 13 : 11 }}
+                            >
+                              {visibleCount} {visibleCount === 1 ? 'memory' : 'memories'}
+                            </p>
+                            {space.type === 'group' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (!editPageMode) { setViewingSpaceId(space.id); setModal('members') }
+                                }}
+                                className="flex items-center gap-1 mt-1 text-warmDark/45 hover:text-warmDark/65 transition-colors"
+                                style={{ fontSize: 10 }}
+                              >
+                                <Users style={{ width: 10, height: 10 }} />
+                                <span>{space.membersList.filter((m: any) => m.status === 'active').length} members</span>
+                                {isOwner && <Crown style={{ width: 10, height: 10 }} className="text-gold/60" />}
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Edit mode overlays */}
+                    {editPageMode && !isNew && isOwner && (
+                      <>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEditSpace(space) }}
+                          className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-white shadow-md flex items-center justify-center text-warmDark/60 hover:text-warmDark transition-colors z-20 border border-warmMid/10"
+                          style={{ transform: `rotate(${-rotation}deg)` }}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        {!isDelConfirm ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(space.id) }}
+                            className="absolute -top-3 -left-3 w-7 h-7 rounded-full bg-white shadow-md flex items-center justify-center text-coral/60 hover:text-coral transition-colors z-20 border border-warmMid/10"
+                            style={{ transform: `rotate(${-rotation}deg)` }}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        ) : (
+                          <div
+                            className="absolute -top-11 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-lg px-3 py-2 flex items-center gap-2 z-20 whitespace-nowrap border border-warmMid/10"
+                            style={{ transform: `translateX(-50%) rotate(${-rotation}deg)` }}
+                          >
+                            <span className="text-xs text-warmDark/60 font-sans">Delete?</span>
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteSpace(space.id) }} className="text-xs text-coral font-medium hover:text-coral/70">Yes</button>
+                            <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(null) }} className="text-xs text-warmDark/40 hover:text-warmDark/60">No</button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </motion.div>
+                </motion.div>
+              </div>
             )
           })}
-
-          {/* Create new */}
-          <motion.button
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: visibleSpaces.length * 0.1 }}
-            whileHover={{ scale: 1.08, y: -8 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setModal('create')}
-            className="group flex flex-col items-center"
-          >
-            <div className="w-28 h-28 md:w-36 md:h-36 rounded-full border-2 border-dashed border-warmMid/25 flex items-center justify-center group-hover:border-gold/50 transition-colors duration-500">
-              <Plus className="w-8 h-8 text-warmDark/35 group-hover:text-gold/60 transition-colors" />
-            </div>
-            <p className="mt-3 font-handwriting text-base text-warmDark/45 group-hover:text-warmDark/70 transition-colors">New Space</p>
-          </motion.button>
         </div>
 
       </div>
