@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, KeyRound } from 'lucide-react'
+import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, KeyRound, LogOut } from 'lucide-react'
 import { useState } from 'react'
 import { useStore } from '../store/useStore'
 import { api } from '../api'
@@ -159,6 +159,9 @@ export default function SpaceSelector() {
   const [pwSuccess, setPwSuccess] = useState(false)
   const [pwLoading, setPwLoading] = useState(false)
 
+  // Profile Menu
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
+
   const handleCreate = async () => {
     if (!newTitle.trim() || creating) return
     setCreating(true)
@@ -232,6 +235,7 @@ export default function SpaceSelector() {
     setDeleteConfirmId(null)
     setOldPassword(''); setNewPassword(''); setConfirmPassword('')
     setPwError(''); setPwSuccess(false)
+    setShowProfileMenu(false)
   }
 
   if (loading) {
@@ -257,105 +261,198 @@ export default function SpaceSelector() {
       <ParticleBackground />
 
       <div className="relative z-10 min-h-screen flex flex-col items-center px-4 py-12 md:py-20">
+        {/* Top Right Controls */}
+        <div className="absolute top-6 right-6 flex items-center gap-3 z-30">
+            {/* Profile Menu Dropdown Container */}
+            <div className="relative">
+              <button
+                onClick={() => setShowProfileMenu((v) => {
+                  if (v) setShowInvites(false) // Reset nested view when closing
+                  return !v
+                })}
+                className="relative w-10 h-10 rounded-full bg-gradient-to-br from-gold/40 to-coral/40 flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-white/30"
+                title="Profile options"
+              >
+                <span className="font-serif text-lg text-warmDark font-medium">
+                  {currentUser?.name?.[0]?.toUpperCase() || 'U'}
+                </span>
+                {pendingInvites.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-coral rounded-full text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
+                    {pendingInvites.length}
+                  </span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {showProfileMenu && (
+                  <>
+                    {/* Backdrop to close menu when clicking outside */}
+                    <div className="fixed inset-0 z-10" onClick={() => setShowProfileMenu(false)} />
+                    
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-12 z-20 w-72 bg-white/95 backdrop-blur-md border border-warmMid/15 rounded-2xl shadow-xl overflow-hidden"
+                    >
+                      <AnimatePresence mode="wait">
+                        {!showInvites ? (
+                          <motion.div
+                            key="main-menu"
+                            initial={{ x: -20, opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: -20, opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                          >
+                            {/* User Info Header */}
+                            <div className="px-5 py-4 border-b border-warmMid/10 bg-warmMid/5">
+                              <p className="font-serif text-lg text-warmDark truncate">
+                                {currentUser?.name || 'User'}
+                              </p>
+                              <p className="font-sans text-xs text-warmDark/50 truncate mt-0.5">
+                                {currentUser?.email || 'user@example.com'}
+                              </p>
+                            </div>
+
+                            {/* Menu Items */}
+                            <div className="py-2">
+                              {pendingInvites.length > 0 && (
+                                <button
+                                  onClick={() => setShowInvites(true)}
+                                  className="w-full text-left px-5 py-3 hover:bg-warmMid/10 transition-colors flex items-center justify-between group"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-sans text-sm text-warmDark/70 group-hover:text-warmDark">Space invitations</span>
+                                    <span className="w-5 h-5 rounded-full bg-coral/10 text-coral text-[10px] font-bold flex items-center justify-center">
+                                      {pendingInvites.length}
+                                    </span>
+                                  </div>
+                                  <Mail className="w-4 h-4 text-warmDark/40 group-hover:text-warmDark/60 transition-colors" />
+                                </button>
+                              )}
+
+                              {visibleSpaces.length > 0 && (
+                                <button
+                                  onClick={() => { 
+                                    setEditPageMode((v) => !v)
+                                    setDeleteConfirmId(null)
+                                    setShowProfileMenu(false)
+                                  }}
+                                  className="w-full text-left px-5 py-3 hover:bg-warmMid/10 transition-colors flex items-center justify-between group"
+                                >
+                                  <span className={`font-sans text-sm ${editPageMode ? 'text-coral/80 font-medium' : 'text-warmDark/70 group-hover:text-warmDark'}`}>
+                                    {editPageMode ? 'Done Editing Spaces' : 'Edit Spaces'}
+                                  </span>
+                                  {!editPageMode && <Pencil className="w-4 h-4 text-warmDark/40 group-hover:text-warmDark/60 transition-colors" />}
+                                </button>
+                              )}
+                              
+                              <button
+                                onClick={() => {
+                                  setModal('change-password')
+                                  setShowProfileMenu(false)
+                                }}
+                                className="w-full text-left px-5 py-3 hover:bg-warmMid/10 transition-colors flex items-center justify-between group"
+                              >
+                                <span className="font-sans text-sm text-warmDark/70 group-hover:text-warmDark">Change password</span>
+                                <KeyRound className="w-4 h-4 text-warmDark/40 group-hover:text-warmDark/60 transition-colors" />
+                              </button>
+                            </div>
+
+                            <div className="border-t border-warmMid/10 py-2 bg-coral/5 hover:bg-coral/10 transition-colors">
+                              <button 
+                                onClick={() => {
+                                  setShowProfileMenu(false)
+                                  logout()
+                                }} 
+                                className="w-full text-left px-5 py-2.5 flex items-center justify-between group"
+                              >
+                                <span className="font-sans text-sm text-coral/80 group-hover:text-coral font-medium">Sign out</span>
+                                <LogOut className="w-4 h-4 text-coral/60 group-hover:text-coral transition-colors" />
+                              </button>
+                            </div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="invites-menu"
+                            initial={{ x: 20, opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: 20, opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="flex flex-col max-h-96"
+                          >
+                            <div className="px-4 py-3 border-b border-warmMid/10 flex items-center gap-3 bg-warmMid/5">
+                              <button 
+                                onClick={() => setShowInvites(false)} 
+                                className="text-warmDark/40 hover:text-warmDark/70 p-1 -ml-1 rounded-md hover:bg-warmMid/10 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                              <p className="font-serif text-base text-warmDark">Space invitations</p>
+                            </div>
+                            <div className="divide-y divide-warmMid/8 overflow-y-auto overflow-x-hidden flex-1">
+                              {pendingInvites.length === 0 ? (
+                                <div className="p-6 text-center text-warmDark/40 text-sm font-sans">
+                                  No pending invitations.
+                                </div>
+                              ) : (
+                                pendingInvites.map((inv) => (
+                                  <div key={inv.id} className="px-4 py-3 flex items-center gap-3">
+                                    <span className="text-2xl flex-shrink-0">{inv.spaceEmoji}</span>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-sans text-sm text-warmDark font-medium truncate">{inv.spaceName}</p>
+                                      <p className="font-sans text-xs text-warmDark/40">You've been invited</p>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                      <button
+                                        disabled={inviteActionId === inv.spaceId}
+                                        onClick={async () => {
+                                          setInviteActionId(inv.spaceId)
+                                          await acceptSpaceInvite(inv.spaceId)
+                                          setInviteActionId(null)
+                                          if (pendingInvites.length <= 1) setShowInvites(false)
+                                        }}
+                                        className="w-7 h-7 rounded-full bg-teal/15 hover:bg-teal/30 flex items-center justify-center transition-colors disabled:opacity-50"
+                                        title="Accept"
+                                      >
+                                        <Check className="w-3.5 h-3.5 text-teal" />
+                                      </button>
+                                      <button
+                                        disabled={inviteActionId === inv.spaceId}
+                                        onClick={async () => {
+                                          setInviteActionId(inv.spaceId)
+                                          await rejectSpaceInvite(inv.spaceId)
+                                          setInviteActionId(null)
+                                          if (pendingInvites.length <= 1) setShowInvites(false)
+                                        }}
+                                        className="w-7 h-7 rounded-full bg-coral/15 hover:bg-coral/30 flex items-center justify-center transition-colors disabled:opacity-50"
+                                        title="Decline"
+                                      >
+                                        <X className="w-3.5 h-3.5 text-coral" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-center mb-12"
+          className="text-center mb-12 mt-8 md:mt-0"
         >
-          <div className="absolute top-6 right-6 flex items-center gap-3">
-            {/* Pending invites bell */}
-            {pendingInvites.length > 0 && (
-              <button
-                onClick={() => setShowInvites((v) => !v)}
-                className="relative text-warmDark/45 hover:text-warmDark/70 transition-colors"
-                title="Space invites"
-              >
-                <Mail className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-coral rounded-full text-white text-[9px] font-bold flex items-center justify-center">
-                  {pendingInvites.length}
-                </span>
-              </button>
-            )}
-            {visibleSpaces.length > 0 && (
-              <button
-                onClick={() => { setEditPageMode((v) => !v); setDeleteConfirmId(null) }}
-                className={`text-sm font-sans transition-colors ${editPageMode ? 'text-coral/70 font-medium' : 'text-warmDark/45 hover:text-warmDark/70'}`}
-              >
-                {editPageMode ? 'Done' : 'Edit'}
-              </button>
-            )}
-            <button
-              onClick={() => setModal('change-password')}
-              className="text-warmDark/45 hover:text-warmDark/70 transition-colors"
-              title="Change password"
-            >
-              <KeyRound className="w-4 h-4" />
-            </button>
-            <button onClick={logout} className="text-warmDark/45 hover:text-warmDark/70 text-sm transition-colors">
-              Sign out
-            </button>
-          </div>
-
-          {/* Pending invites panel */}
-          <AnimatePresence>
-            {showInvites && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute top-16 right-6 z-20 bg-white/95 backdrop-blur-md border border-warmMid/15 rounded-2xl shadow-xl w-80 overflow-hidden"
-              >
-                <div className="px-4 pt-4 pb-2 border-b border-warmMid/10 flex items-center justify-between">
-                  <p className="font-serif text-base text-warmDark">Space invitations</p>
-                  <button onClick={() => setShowInvites(false)} className="text-warmDark/40 hover:text-warmDark/70">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="divide-y divide-warmMid/8 max-h-80 overflow-y-auto">
-                  {pendingInvites.map((inv) => (
-                    <div key={inv.id} className="px-4 py-3 flex items-center gap-3">
-                      <span className="text-2xl flex-shrink-0">{inv.spaceEmoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-sans text-sm text-warmDark font-medium truncate">{inv.spaceName}</p>
-                        <p className="font-sans text-xs text-warmDark/40">You've been invited</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <button
-                          disabled={inviteActionId === inv.spaceId}
-                          onClick={async () => {
-                            setInviteActionId(inv.spaceId)
-                            await acceptSpaceInvite(inv.spaceId)
-                            setInviteActionId(null)
-                            if (pendingInvites.length <= 1) setShowInvites(false)
-                          }}
-                          className="w-7 h-7 rounded-full bg-teal/15 hover:bg-teal/30 flex items-center justify-center transition-colors disabled:opacity-50"
-                          title="Accept"
-                        >
-                          <Check className="w-3.5 h-3.5 text-teal" />
-                        </button>
-                        <button
-                          disabled={inviteActionId === inv.spaceId}
-                          onClick={async () => {
-                            setInviteActionId(inv.spaceId)
-                            await rejectSpaceInvite(inv.spaceId)
-                            setInviteActionId(null)
-                            if (pendingInvites.length <= 1) setShowInvites(false)
-                          }}
-                          className="w-7 h-7 rounded-full bg-coral/15 hover:bg-coral/30 flex items-center justify-center transition-colors disabled:opacity-50"
-                          title="Decline"
-                        >
-                          <X className="w-3.5 h-3.5 text-coral" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {currentUser && (
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
               className="font-handwriting text-lg text-warmDark/70 mb-4">
