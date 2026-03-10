@@ -19,7 +19,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'personal-u1',
     title: 'Personal Life',
-    coverImage: '', coverEmoji: '\u2728',
+    coverImage: '', coverEmoji: '\u2728', coverIcon: '', coverColor: '',
     memoryCount: 3, type: 'personal',
     createdBy: 'u1',
     membersList: [{ userId: 'u1', name: 'Jagadeesh', role: 'owner', status: 'active', joinedAt: '2024-01-01' }],
@@ -51,7 +51,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'personal-u2',
     title: 'Rahul\'s Diary',
-    coverImage: '', coverEmoji: '\ud83c\udfb8',
+    coverImage: '', coverEmoji: '\ud83c\udfb8', coverIcon: '', coverColor: '',
     memoryCount: 2, type: 'personal',
     createdBy: 'u2',
     membersList: [{ userId: 'u2', name: 'Rahul', role: 'owner', status: 'active', joinedAt: '2024-01-01' }],
@@ -73,7 +73,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'personal-u3',
     title: 'Priya\'s Corner',
-    coverImage: '', coverEmoji: '\ud83c\udf3b',
+    coverImage: '', coverEmoji: '\ud83c\udf3b', coverIcon: '', coverColor: '',
     memoryCount: 2, type: 'personal',
     createdBy: 'u3',
     membersList: [{ userId: 'u3', name: 'Priya', role: 'owner', status: 'active', joinedAt: '2024-02-01' }],
@@ -95,7 +95,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'personal-u4',
     title: 'Ankit\'s Log',
-    coverImage: '', coverEmoji: '\ud83d\udcbb',
+    coverImage: '', coverEmoji: '\ud83d\udcbb', coverIcon: '', coverColor: '',
     memoryCount: 1, type: 'personal',
     createdBy: 'u4',
     membersList: [{ userId: 'u4', name: 'Ankit', role: 'owner', status: 'active', joinedAt: '2024-03-01' }],
@@ -112,7 +112,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'personal-u5',
     title: 'Vikram\'s World',
-    coverImage: '', coverEmoji: '\ud83c\udfb6',
+    coverImage: '', coverEmoji: '\ud83c\udfb6', coverIcon: '', coverColor: '',
     memoryCount: 1, type: 'personal',
     createdBy: 'u5',
     membersList: [{ userId: 'u5', name: 'Vikram', role: 'owner', status: 'active', joinedAt: '2024-01-01' }],
@@ -129,7 +129,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'personal-u6',
     title: 'Sneha\'s Space',
-    coverImage: '', coverEmoji: '\ud83d\udcda',
+    coverImage: '', coverEmoji: '\ud83d\udcda', coverIcon: '', coverColor: '',
     memoryCount: 1, type: 'personal',
     createdBy: 'u6',
     membersList: [{ userId: 'u6', name: 'Sneha', role: 'owner', status: 'active', joinedAt: '2024-01-01' }],
@@ -153,7 +153,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'thailand-trip',
     title: 'Thailand Trip 2025',
-    coverImage: '', coverEmoji: '\ud83c\uddf9\ud83c\udded',
+    coverImage: '', coverEmoji: '\ud83c\uddf9\ud83c\udded', coverIcon: '', coverColor: '',
     memoryCount: 4, type: 'group',
     createdBy: 'u1',
     membersList: [
@@ -186,7 +186,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'college-friends',
     title: 'College Gang',
-    coverImage: '', coverEmoji: '\ud83c\udf93',
+    coverImage: '', coverEmoji: '\ud83c\udf93', coverIcon: '', coverColor: '',
     memoryCount: 3, type: 'group',
     createdBy: 'u5',
     membersList: [
@@ -210,7 +210,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'startup-journey',
     title: 'Startup Journey',
-    coverImage: '', coverEmoji: '\ud83d\ude80',
+    coverImage: '', coverEmoji: '\ud83d\ude80', coverIcon: '', coverColor: '',
     memoryCount: 2, type: 'group',
     createdBy: 'u1',
     membersList: [
@@ -231,7 +231,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'weekend-trekkers',
     title: 'Weekend Trekkers',
-    coverImage: '', coverEmoji: '\u26f0\uFE0F',
+    coverImage: '', coverEmoji: '\u26f0\uFE0F', coverIcon: '', coverColor: '',
     memoryCount: 3, type: 'group',
     createdBy: 'u2',
     membersList: [
@@ -254,7 +254,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'book-club',
     title: 'The Reading Room',
-    coverImage: '', coverEmoji: '\ud83d\udcda',
+    coverImage: '', coverEmoji: '\ud83d\udcda', coverIcon: '', coverColor: '',
     memoryCount: 2, type: 'group',
     createdBy: 'u6',
     membersList: [
@@ -275,7 +275,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'goa-trip',
     title: 'Goa Reunion 2024',
-    coverImage: '', coverEmoji: '\ud83c\udf0a',
+    coverImage: '', coverEmoji: '\ud83c\udf0a', coverIcon: '', coverColor: '',
     memoryCount: 3, type: 'group',
     createdBy: 'u3',
     membersList: [
@@ -300,7 +300,7 @@ export const memorySpaces: MemorySpace[] = [
   {
     id: 'fitness-buddies',
     title: 'Fitness Buddies',
-    coverImage: '', coverEmoji: '\ud83d\udcaa',
+    coverImage: '', coverEmoji: '\ud83d\udcaa', coverIcon: '', coverColor: '',
     memoryCount: 2, type: 'group',
     createdBy: 'u4',
     membersList: [

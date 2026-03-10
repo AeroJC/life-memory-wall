@@ -321,7 +321,7 @@ export default function LoginPage() {
                   className="w-full glass rounded-2xl py-4 px-6 flex items-center justify-center gap-3 hover:bg-white/60 transition-all duration-500 group"
                 >
                   <Mail className="w-5 h-5 text-warmDark/70" />
-                  <span className="font-sans text-warmDark group-hover:text-warmDark/80">Sign in with Email</span>
+                  <span className="font-sans text-warmDark group-hover:text-warmDark/80">Login with Email</span>
                 </button>
               </motion.div>
 
@@ -528,7 +528,6 @@ export default function LoginPage() {
                 {emailStep === 'enter' ? (
                   <motion.div key="email-input" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
                     <div>
-                      <label className="font-handwriting text-warmDark/75 text-lg block mb-2">Email address</label>
                       <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setLoginError('') }}
                         onKeyDown={(e) => e.key === 'Enter' && handleEmailNext()}
                         placeholder="you@example.com" autoFocus
