@@ -1,5 +1,6 @@
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Users, Send, Check, Mail, Loader2, X, UserMinus, LogOut } from 'lucide-react'
+import { SpaceIconRenderer } from './SpaceIcons'
 import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { api } from '../api'
@@ -394,6 +395,17 @@ const loadPendingInvites = async () => {
             <span className="font-sans text-sm">Timeline</span>
           </button>
 
+          <div className="flex items-center gap-1.5">
+            {space.coverIcon ? (
+              <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
+                <SpaceIconRenderer iconId={space.coverIcon} size="full" />
+              </div>
+            ) : (
+              <span className="text-sm">{space.coverEmoji}</span>
+            )}
+            <span className="font-serif text-sm text-warmDark">{space.title}</span>
+          </div>
+
           {space.type === 'group' && (
           <div className="relative">
             <button
@@ -434,11 +446,15 @@ const loadPendingInvites = async () => {
                 <ArrowLeft className="w-4 h-4" />
                 <span className="font-sans text-sm">Spaces</span>
               </button>
-              <div className="text-center">
-                <h2 className="font-serif text-lg text-warmDark flex items-center gap-2">
+              <div className="text-center flex items-center justify-center gap-2">
+                {space.coverIcon ? (
+                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                    <SpaceIconRenderer iconId={space.coverIcon} size="full" />
+                  </div>
+                ) : (
                   <span>{space.coverEmoji}</span>
-                  {space.title}
-                </h2>
+                )}
+                <h2 className="font-serif text-lg text-warmDark">{space.title}</h2>
               </div>
               {space.type === 'group' && (
               <button
