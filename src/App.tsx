@@ -37,8 +37,34 @@ export default function App() {
 
   if (!initialized) {
     return (
-      <div className="min-h-screen gradient-bg flex items-center justify-center">
-        <div className="w-10 h-10 rounded-full border-2 border-gold/40 border-t-gold animate-spin" />
+      <div className="min-h-screen gradient-bg flex flex-col items-center justify-center gap-6">
+        {/* App icon */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="relative"
+        >
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-gold/80 to-coral/70 flex items-center justify-center shadow-lg">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+              <circle cx="20" cy="20" r="14" stroke="white" strokeWidth="2.5" opacity="0.9" />
+              <circle cx="20" cy="20" r="8" stroke="white" strokeWidth="2" opacity="0.7" />
+              <circle cx="20" cy="20" r="3" fill="white" opacity="0.9" />
+            </svg>
+          </div>
+          {/* Spinner ring around icon */}
+          <div className="absolute -inset-2 rounded-[1.25rem] border-2 border-gold/20 border-t-gold/60 animate-spin" style={{ animationDuration: '1.5s' }} />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="text-center"
+        >
+          <h1 className="font-serif text-2xl text-warmDark mb-1">My Inner Circle</h1>
+          <p className="font-handwriting text-xl text-warmDark/70">Restoring your moments...</p>
+        </motion.div>
       </div>
     )
   }

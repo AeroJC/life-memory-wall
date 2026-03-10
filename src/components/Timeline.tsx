@@ -66,15 +66,22 @@ export default function Timeline() {
 
   if (!space) {
     return (
-      <div className="min-h-screen gradient-bg flex flex-col items-center justify-center gap-5">
-        <div className="relative w-16 h-16">
-          <div className="absolute inset-0 rounded-full border-2 border-gold/20 border-t-gold animate-spin" style={{ animationDuration: '1.2s' }} />
-          <div className="absolute inset-[5px] rounded-full border-2 border-coral/20 border-t-coral/60 animate-spin" style={{ animationDuration: '0.8s', animationDirection: 'reverse' }} />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-2 h-2 rounded-full bg-gold/50" />
+      <div className="min-h-screen gradient-bg flex flex-col items-center justify-center gap-6">
+        {/* App icon */}
+        <div className="relative">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-gold/80 to-coral/70 flex items-center justify-center shadow-lg">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+              <circle cx="20" cy="20" r="14" stroke="white" strokeWidth="2.5" opacity="0.9" />
+              <circle cx="20" cy="20" r="8" stroke="white" strokeWidth="2" opacity="0.7" />
+              <circle cx="20" cy="20" r="3" fill="white" opacity="0.9" />
+            </svg>
           </div>
+          <div className="absolute -inset-2 rounded-[1.25rem] border-2 border-gold/20 border-t-gold/60 animate-spin" style={{ animationDuration: '1.5s' }} />
         </div>
-        <p className="font-handwriting text-2xl text-warmDark/80">opening your memories...</p>
+        <div className="text-center">
+          <h1 className="font-serif text-2xl text-warmDark mb-1">My Inner Circle</h1>
+          <p className="font-handwriting text-xl text-warmDark/70">Opening your memories...</p>
+        </div>
       </div>
     )
   }
@@ -387,6 +394,7 @@ const loadPendingInvites = async () => {
             <span className="font-sans text-sm">Timeline</span>
           </button>
 
+          {space.type === 'group' && (
           <div className="relative">
             <button
               type="button"
@@ -404,6 +412,7 @@ const loadPendingInvites = async () => {
             </button>
             {showMembers && MemoryMembersPanel}
           </div>
+          )}
         </div>
       )}
 
@@ -431,6 +440,7 @@ const loadPendingInvites = async () => {
                   {space.title}
                 </h2>
               </div>
+              {space.type === 'group' && (
               <button
                 type="button"
                 onClick={() => setShowMembers((v) => !v)}
@@ -451,6 +461,7 @@ const loadPendingInvites = async () => {
                   {space.membersList.filter((m) => m.status === 'active').length}
                 </span>
               </button>
+              )}
             </div>
             {showMembers && SpaceMembersPanel}
           </div>
