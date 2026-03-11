@@ -31,9 +31,28 @@ const defaultSpaceColors = [
 
 type Modal = 'none' | 'create' | 'members' | 'edit-space' | 'change-password'
 
+const spacePageHeadings = [
+  'Where do you want to go today?',
+  'Which memory calls you back?',
+  'Every space, a story waiting for you.',
+  'Pick a space, relive the moment.',
+  'Your memories are right here.',
+  'Step into a moment you cherish.',
+  'Which chapter do you want to revisit?',
+]
+
+const spacePageSubheadings = [
+  'Choose a memory space to explore',
+  'Each space holds a piece of your world',
+  'Pick a space and relive the feeling',
+  'The people, the places, the moments',
+]
+
 export default function SpaceSelector() {
   const { getVisibleSpaces, setActiveSpace, addSpace, updateSpace, deleteSpace, leaveSpace, removeMember, logout, currentUser, spaces, loading, pendingInvites, acceptSpaceInvite, rejectSpaceInvite } = useStore()
   const visibleSpaces = getVisibleSpaces()
+  const [pageHeading] = useState(() => spacePageHeadings[Math.floor(Math.random() * spacePageHeadings.length)])
+  const [pageSubheading] = useState(() => spacePageSubheadings[Math.floor(Math.random() * spacePageSubheadings.length)])
 
   const [modal, setModal] = useState<Modal>('none')
   const [newTitle, setNewTitle] = useState('')
@@ -68,6 +87,7 @@ export default function SpaceSelector() {
   const [editColor, setEditColor] = useState('purple-pink')
   const [editDescription, setEditDescription] = useState('')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [deleteConfirmSpace, setDeleteConfirmSpace] = useState<MemorySpace | null>(null)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
   const [editError, setEditError] = useState('')
@@ -93,6 +113,13 @@ export default function SpaceSelector() {
 
   // Icon theme (accent variation): 0 = Warm, 1 = Lavender, 2 = Rosy
   const [selectedTheme, setSelectedTheme] = useState(0)
+  const [selectedCategory, setSelectedCategory] = useState(iconCategories[0])
+  const categoryShortNames: Record<string, string> = {
+    'Pets': 'Pets', 'Kids': 'Kids', 'College & School': 'College',
+    'Friends & Gang': 'Friends', 'Family & Couples': 'Family',
+    'Siblings & Cousins': 'Siblings', 'Personal': 'Personal',
+    'Trips & Vacations': 'Trips', 'Celebrations & More': 'Celebrations',
+  }
 
   const handleCreate = async () => {
     if (creating) return
@@ -449,16 +476,74 @@ export default function SpaceSelector() {
             </motion.p>
           )}
 
-          <h1 className="font-serif text-3xl md:text-5xl text-warmDark mb-4">Where do you want to go today?</h1>
-          <p className="font-handwriting text-xl md:text-2xl text-warmDark/70">Choose a memory space to explore</p>
+          <h1 className="font-serif text-3xl md:text-5xl text-warmDark mb-4">
+            {visibleSpaces.length === 0 ? 'Your story starts here' : pageHeading}
+          </h1>
+          <p className="font-handwriting text-xl md:text-2xl text-warmDark/70">
+            {visibleSpaces.length === 0 ? 'Create a space to begin' : pageSubheading}
+          </p>
         </motion.div>
+
+        {/* Empty state */}
+        {visibleSpaces.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="flex flex-col items-center text-center max-w-sm mb-16 gap-6"
+          >
+            {/* Icon cluster */}
+            <div className="flex items-end gap-4">
+              {[
+                { iconId: 'friends-trio-0', delay: '0s', size: 'w-16 h-16' },
+                { iconId: 'reading-0', delay: '0.35s', size: 'w-20 h-20' },
+                { iconId: 'road-trip-0', delay: '0.7s', size: 'w-16 h-16' },
+              ].map(({ iconId, delay, size }) => (
+                <div key={iconId} className={`${size} rounded-full glass shadow-md animate-float overflow-hidden`} style={{ animationDelay: delay }}>
+                  <SpaceIconRenderer iconId={iconId} size="full" />
+                </div>
+              ))}
+            </div>
+
+            {/* Description */}
+            <div className="space-y-3">
+              <p className="font-serif text-warmDark text-base leading-relaxed italic drop-shadow-sm">
+                A place to keep memories — trips, birthdays,<br />everyday moments with people you love.
+              </p>
+              <p className="font-handwriting text-2xl text-warmDark">
+                Make one for your family, a trip, or just yourself.
+              </p>
+            </div>
+
+            {/* Arrow hint + button */}
+            <div className="flex flex-col items-center gap-3">
+              <motion.div
+                animate={{ y: [0, 6, 0] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                className="flex flex-col items-center gap-1 text-warmDark/50"
+              >
+                <p className="font-sans text-sm tracking-wide">tap <span className="font-semibold text-gold">+ New Space</span> to begin</p>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 3v14M10 17l-4-4M10 17l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </motion.div>
+              <button
+                onClick={() => setModal('create')}
+                className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-gold/90 to-coral/90 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all font-sans font-medium text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                New Space
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Space bubbles */}
         <div ref={spacesContainerRef} className="flex flex-wrap justify-center gap-8 md:gap-10 max-w-5xl mb-12">
           {visibleSpaces.map((space, i) => {
             const isOwner = space.createdBy === currentUser?.id
             const myRole = space.membersList.find((m) => m.userId === currentUser?.id)?.role
-            const isDelConfirm = deleteConfirmId === space.id
+            const isDelConfirm = false // handled by modal now
             return (
               <motion.div
                 key={space.id}
@@ -500,27 +585,15 @@ export default function SpaceSelector() {
                       >
                         <Pencil className="w-4 h-4" />
                       </motion.button>
-                      {!isDelConfirm ? (
-                        <motion.button
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ type: 'spring', stiffness: 300, delay: 0.15 }}
-                          onClick={() => setDeleteConfirmId(space.id)}
-                          className="absolute -top-2 -left-2 w-9 h-9 rounded-full bg-gradient-to-br from-coral/80 to-red-400/80 shadow-lg flex items-center justify-center text-white hover:shadow-xl hover:scale-110 transition-all z-10 ring-2 ring-white/80"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </motion.button>
-                      ) : (
-                        <motion.div
-                          initial={{ opacity: 0, y: 6, scale: 0.9 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          className="absolute -top-12 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl px-4 py-2.5 flex items-center gap-3 z-20 whitespace-nowrap border border-warmMid/15"
-                        >
-                          <span className="text-sm text-warmDark/70 font-sans">Delete?</span>
-                          <button onClick={() => handleDeleteSpace(space.id)} className="text-sm text-white font-medium bg-gradient-to-r from-coral/80 to-red-400/80 px-3 py-1 rounded-full hover:shadow-md transition-all">Yes</button>
-                          <button onClick={() => setDeleteConfirmId(null)} className="text-sm text-warmDark/60 hover:text-warmDark/80 font-medium transition-colors">No</button>
-                        </motion.div>
-                      )}
+                      <motion.button
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: 'spring', stiffness: 300, delay: 0.15 }}
+                        onClick={() => setDeleteConfirmSpace(space)}
+                        className="absolute -top-2 -left-2 w-9 h-9 rounded-full bg-gradient-to-br from-coral/80 to-red-400/80 shadow-lg flex items-center justify-center text-white hover:shadow-xl hover:scale-110 transition-all z-10 ring-2 ring-white/80"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </motion.button>
                     </>
                   )}
                 </div>
@@ -561,8 +634,8 @@ export default function SpaceSelector() {
 
         </div>
 
-        {/* Floating "New Space" button — bottom right corner */}
-        <motion.button
+        {/* Floating "New Space" button — bottom right corner (only when spaces exist) */}
+        {visibleSpaces.length > 0 && <motion.button
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, delay: 0.5, type: 'spring', stiffness: 200 }}
@@ -573,7 +646,7 @@ export default function SpaceSelector() {
         >
           <Plus className="w-5 h-5" />
           <span className="font-sans font-medium text-sm">New Space</span>
-        </motion.button>
+        </motion.button>}
 
       </div>
 
@@ -666,43 +739,42 @@ export default function SpaceSelector() {
                     {/* Icon picker */}
                     <div>
                       <label className="font-handwriting text-lg text-warmDark/70 block mb-2">Choose an icon</label>
-                      {/* Theme toggle buttons */}
+                      {/* Category pills — wrap naturally */}
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {iconCategories.map((cat) => (
+                          <button key={cat}
+                            onClick={() => setSelectedCategory(cat)}
+                            className={`px-3 py-1 rounded-full font-sans text-xs transition-all ${selectedCategory === cat ? 'bg-warmDark text-warmWhite font-medium' : 'bg-white/50 text-warmDark/60 hover:bg-white/70'}`}
+                          >
+                            {categoryShortNames[cat] ?? cat}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Theme toggle */}
                       <div className="flex gap-2 mb-3">
-                        {([
-                          { label: 'Warm', value: 0 },
-                          { label: 'Lavender', value: 1 },
-                          { label: 'Rosy', value: 2 },
-                        ] as const).map((theme) => (
+                        {([{ label: 'Warm', value: 0 }, { label: 'Lavender', value: 1 }, { label: 'Rosy', value: 2 }] as const).map((theme) => (
                           <button key={theme.value}
                             onClick={() => { setSelectedTheme(theme.value); setNewIconVariation(theme.value) }}
-                            className={`px-4 py-1.5 rounded-full font-sans text-sm transition-all ${selectedTheme === theme.value ? 'bg-gold/30 text-warmDark ring-1 ring-gold/40 font-medium' : 'bg-white/30 text-warmDark/60 hover:bg-white/50'}`}
+                            className={`px-4 py-1.5 rounded-full font-sans text-sm transition-all ${selectedTheme === theme.value ? 'bg-coral/20 text-warmDark ring-1 ring-coral/30 font-medium' : 'bg-white/30 text-warmDark/60 hover:bg-white/50'}`}
                           >
                             {theme.label}
                           </button>
                         ))}
                       </div>
-                      <div className="max-h-60 overflow-y-auto space-y-4 pr-1">
-                        {iconCategories.map((cat) => (
-                          <div key={cat}>
-                            <p className="font-sans text-sm text-warmDark/70 uppercase tracking-wider mb-2">{cat}</p>
-                            <div className="flex flex-wrap gap-2">
-                              {getIconsByCategory(cat).map((iconDef) => {
-                                const isSelected = newIcon === iconDef.id && newIconVariation === selectedTheme
-                                return (
-                                  <button key={iconDef.id}
-                                    onClick={() => { setNewIcon(iconDef.id); setNewIconVariation(selectedTheme); setNewDescription(randomTaglineForIcon(iconDef.id)) }}
-                                    className={`w-14 h-14 rounded-full flex items-center justify-center transition-all overflow-hidden ${isSelected ? 'ring-2 ring-gold/60 scale-110' : 'hover:scale-105'}`}
-                                    title={iconDef.name}
-                                  >
-                                    <div className="w-14 h-14 rounded-full overflow-hidden">
-                                      <iconDef.component accent={selectedTheme} />
-                                    </div>
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        ))}
+                      {/* Icon grid — no scroll, just a clean grid */}
+                      <div className="grid grid-cols-6 gap-2">
+                        {getIconsByCategory(selectedCategory).map((iconDef) => {
+                          const isSelected = newIcon === iconDef.id && newIconVariation === selectedTheme
+                          return (
+                            <button key={iconDef.id}
+                              onClick={() => { setNewIcon(iconDef.id); setNewIconVariation(selectedTheme); setNewDescription(randomTaglineForIcon(iconDef.id)) }}
+                              className={`w-full aspect-square rounded-full flex items-center justify-center transition-all overflow-hidden ${isSelected ? 'ring-2 ring-gold/70 scale-110 shadow-md' : 'hover:scale-105 hover:shadow-sm'}`}
+                              title={iconDef.name}
+                            >
+                              <iconDef.component accent={selectedTheme} />
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
 
@@ -748,43 +820,42 @@ export default function SpaceSelector() {
                     {/* Icon picker */}
                     <div>
                       <label className="font-handwriting text-lg text-warmDark/70 block mb-2">Icon</label>
-                      {/* Theme toggle buttons */}
+                      {/* Category pills — wrap naturally */}
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {iconCategories.map((cat) => (
+                          <button key={cat}
+                            onClick={() => setSelectedCategory(cat)}
+                            className={`px-3 py-1 rounded-full font-sans text-xs transition-all ${selectedCategory === cat ? 'bg-warmDark text-warmWhite font-medium' : 'bg-white/50 text-warmDark/60 hover:bg-white/70'}`}
+                          >
+                            {categoryShortNames[cat] ?? cat}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Theme toggle */}
                       <div className="flex gap-2 mb-3">
-                        {([
-                          { label: 'Warm', value: 0 },
-                          { label: 'Lavender', value: 1 },
-                          { label: 'Rosy', value: 2 },
-                        ] as const).map((theme) => (
+                        {([{ label: 'Warm', value: 0 }, { label: 'Lavender', value: 1 }, { label: 'Rosy', value: 2 }] as const).map((theme) => (
                           <button key={theme.value}
                             onClick={() => { setSelectedTheme(theme.value); setEditIconVariation(theme.value) }}
-                            className={`px-4 py-1.5 rounded-full font-sans text-sm transition-all ${selectedTheme === theme.value ? 'bg-gold/30 text-warmDark ring-1 ring-gold/40 font-medium' : 'bg-white/30 text-warmDark/60 hover:bg-white/50'}`}
+                            className={`px-4 py-1.5 rounded-full font-sans text-sm transition-all ${selectedTheme === theme.value ? 'bg-coral/20 text-warmDark ring-1 ring-coral/30 font-medium' : 'bg-white/30 text-warmDark/60 hover:bg-white/50'}`}
                           >
                             {theme.label}
                           </button>
                         ))}
                       </div>
-                      <div className="max-h-60 overflow-y-auto space-y-4 pr-1">
-                        {iconCategories.map((cat) => (
-                          <div key={cat}>
-                            <p className="font-sans text-sm text-warmDark/70 uppercase tracking-wider mb-2">{cat}</p>
-                            <div className="flex flex-wrap gap-2">
-                              {getIconsByCategory(cat).map((iconDef) => {
-                                const isSelected = editIcon === iconDef.id && editIconVariation === selectedTheme
-                                return (
-                                  <button key={iconDef.id}
-                                    onClick={() => { setEditIcon(iconDef.id); setEditIconVariation(selectedTheme) }}
-                                    className={`w-14 h-14 rounded-full flex items-center justify-center transition-all overflow-hidden ${isSelected ? 'ring-2 ring-gold/60 scale-110' : 'hover:scale-105'}`}
-                                    title={iconDef.name}
-                                  >
-                                    <div className="w-14 h-14 rounded-full overflow-hidden">
-                                      <iconDef.component accent={selectedTheme} />
-                                    </div>
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        ))}
+                      {/* Icon grid */}
+                      <div className="grid grid-cols-6 gap-2">
+                        {getIconsByCategory(selectedCategory).map((iconDef) => {
+                          const isSelected = editIcon === iconDef.id && editIconVariation === selectedTheme
+                          return (
+                            <button key={iconDef.id}
+                              onClick={() => { setEditIcon(iconDef.id); setEditIconVariation(selectedTheme) }}
+                              className={`w-full aspect-square rounded-full flex items-center justify-center transition-all overflow-hidden ${isSelected ? 'ring-2 ring-gold/70 scale-110 shadow-md' : 'hover:scale-105 hover:shadow-sm'}`}
+                              title={iconDef.name}
+                            >
+                              <iconDef.component accent={selectedTheme} />
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
 
@@ -997,6 +1068,74 @@ export default function SpaceSelector() {
                   </>
                 )
               })()}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* DELETE SPACE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {deleteConfirmSpace && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={() => setDeleteConfirmSpace(null)}
+          >
+            <div className="absolute inset-0 bg-warmDark/30 backdrop-blur-sm" />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+              className="glass rounded-3xl p-8 w-full max-w-sm relative z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Warning icon */}
+              <div className="flex justify-center mb-5">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-coral/20 to-red-200/40 flex items-center justify-center">
+                  <Trash2 className="w-7 h-7 text-coral/80" />
+                </div>
+              </div>
+
+              <h2 className="font-serif text-2xl text-warmDark text-center mb-2">Delete "{deleteConfirmSpace.title}"?</h2>
+              <p className="font-sans text-sm text-warmDark/60 text-center mb-2 leading-relaxed">
+                This will permanently delete this space and everything inside it.
+              </p>
+              <div className="bg-coral/8 border border-coral/20 rounded-xl px-4 py-3 mb-6">
+                <ul className="space-y-1.5">
+                  {[
+                    `All ${deleteConfirmSpace.memoryCount || deleteConfirmSpace.memories?.length || 0} memories will be lost`,
+                    'All photos will be permanently deleted',
+                    'All substories and captions gone',
+                    'This cannot be undone',
+                  ].map((item) => (
+                    <li key={item} className="flex items-center gap-2 text-sm font-sans text-coral/80">
+                      <span className="w-1.5 h-1.5 rounded-full bg-coral/60 flex-shrink-0" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirmSpace(null)}
+                  className="flex-1 py-3 rounded-xl text-warmDark/70 hover:bg-white/40 transition-all font-sans font-medium"
+                >
+                  Keep it
+                </button>
+                <button
+                  onClick={() => {
+                    handleDeleteSpace(deleteConfirmSpace.id)
+                    setDeleteConfirmSpace(null)
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-coral/80 to-red-400/80 text-white font-medium font-sans hover:shadow-lg transition-all"
+                >
+                  Yes, delete
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

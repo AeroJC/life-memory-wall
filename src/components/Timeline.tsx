@@ -528,7 +528,7 @@ const loadPendingInvites = async () => {
       )}
 
       {/* Main content */}
-      <div className={`relative z-0 max-w-7xl mx-auto px-4 ${isDetailOpen ? 'pt-0 pb-0' : 'pb-40 pt-4'}`}>
+      <div className={`relative z-0 max-w-7xl mx-auto px-4 ${isDetailOpen ? 'pt-0 pb-0' : 'pb-16 pt-4'}`}>
         <div className="flex gap-6 relative">
 
           {/* LEFT: Timeline list */}
@@ -566,7 +566,7 @@ const loadPendingInvites = async () => {
             )}
 
             {/* Cards */}
-            <div className={isDetailOpen ? 'space-y-3' : 'space-y-12 md:space-y-16'}>
+            <div className={isDetailOpen ? 'space-y-3' : 'space-y-8 md:space-y-10'}>
               {sortedMemories.map((memory, i) => {
                 const side = i % 2 === 0 ? 'left' : 'right'
                 const isSelected = memory.id === selectedMemoryId

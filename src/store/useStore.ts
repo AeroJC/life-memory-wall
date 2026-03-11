@@ -269,15 +269,15 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   deleteSpace: async (spaceId) => {
-    try {
-      await api.deleteSpace(spaceId)
-      localStorage.removeItem('activeSpaceId')
-      set((state) => ({
-        spaces: state.spaces.filter((s) => s.id !== spaceId),
-        activeSpaceId: state.activeSpaceId === spaceId ? null : state.activeSpaceId,
-        activeSpaceData: state.activeSpaceData?.id === spaceId ? null : state.activeSpaceData,
-      }))
-    } catch (err) { console.error('Failed to delete space:', err) }
+    // Optimistic: remove from UI immediately
+    localStorage.removeItem('activeSpaceId')
+    set((state) => ({
+      spaces: state.spaces.filter((s) => s.id !== spaceId),
+      activeSpaceId: state.activeSpaceId === spaceId ? null : state.activeSpaceId,
+      activeSpaceData: state.activeSpaceData?.id === spaceId ? null : state.activeSpaceData,
+    }))
+    // Fire and forget — cleanup happens in background
+    api.deleteSpace(spaceId).catch((err) => console.error('Failed to delete space:', err))
   },
 
   updateSubstory: async (spaceId, memoryId, substoryId, data) => {

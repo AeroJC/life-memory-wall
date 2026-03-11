@@ -47,7 +47,7 @@ export default function MemoryCard({ memory, index, side, onDelete, onReact, onE
       whileInView={{ opacity: 1, x: 0, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 0.8, delay: 0.1, ease: 'easeOut' }}
-      className={`flex ${side === 'right' ? 'md:justify-end' : 'md:justify-start'} justify-center w-full`}
+      className={`flex ${side === 'right' ? 'md:justify-start' : 'md:justify-end'} justify-center w-full`}
     >
       <motion.div
         whileHover={{ scale: 1.02, rotate: 0 }}
