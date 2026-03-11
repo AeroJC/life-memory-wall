@@ -113,7 +113,7 @@ export default function SpaceSelector() {
 
   // Icon theme (accent variation): 0 = Warm, 1 = Lavender, 2 = Rosy
   const [selectedTheme, setSelectedTheme] = useState(0)
-  const [selectedCategory, setSelectedCategory] = useState(iconCategories[0])
+  const [selectedCategory, setSelectedCategory] = useState<string>(iconCategories[0])
   const categoryShortNames: Record<string, string> = {
     'Pets': 'Pets', 'Kids': 'Kids', 'College & School': 'College',
     'Friends & Gang': 'Friends', 'Family & Couples': 'Family',
