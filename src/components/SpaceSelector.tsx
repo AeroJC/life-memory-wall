@@ -6,8 +6,9 @@ import { api } from '../api'
 import {
   spaceIconDefs, iconCategories, iconColors, getIconsByCategory,
   getIconDef, getIconVariation, makeIconId, getColorClasses,
-  randomTaglineForIcon, SpaceIconRenderer,
+  randomTaglineForIcon, SpaceIconRenderer, getGlowColor,
 } from './SpaceIcons'
+import { useBubbleLayout } from '../hooks/useBubbleLayout'
 
 function validatePassword(p: string): string | null {
   if (p.length < 8) return 'Password must be at least 8 characters'
@@ -47,6 +48,27 @@ export default function SpaceSelector() {
   // Edit-mode for spaces page
   const [editPageMode, setEditPageMode] = useState(false)
   const spacesContainerRef = useRef<HTMLDivElement>(null)
+
+  // Floating bubble layout
+  const [hoveredBubbleId, setHoveredBubbleId] = useState<string | null>(null)
+  const [containerWidth, setContainerWidth] = useState(800)
+  const [availableHeight, setAvailableHeight] = useState(500)
+  const isMobile = containerWidth < 768
+  const bubbleLayout = useBubbleLayout(visibleSpaces, containerWidth, availableHeight, isMobile)
+
+  // Measure container dimensions with ResizeObserver
+  const bubbleContainerRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = bubbleContainerRef.current
+    if (!el) return
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0]?.contentRect
+      if (width) setContainerWidth(width)
+      if (height) setAvailableHeight(height)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   useEffect(() => {
     if (!editPageMode) return
@@ -208,10 +230,10 @@ export default function SpaceSelector() {
   }
 
   return (
-    <div className="min-h-screen gradient-bg relative overflow-hidden">
+    <div className="h-screen gradient-bg relative overflow-hidden">
       <ParticleBackground />
 
-      <div className="relative z-10 min-h-screen flex flex-col items-center px-4 py-12 md:py-20">
+      <div className="relative z-10 h-screen flex flex-col items-center px-4">
         {/* Top Right Controls */}
         <div className="absolute top-6 right-6 flex items-center gap-3 z-30">
             {/* Profile Menu Dropdown Container */}
@@ -402,66 +424,155 @@ export default function SpaceSelector() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-center mb-12 mt-8 md:mt-0"
+          className="text-center pt-6 pb-4 flex-shrink-0"
         >
           {currentUser && (
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
-              className="font-handwriting text-lg text-warmDark/70 mb-4">
+              className="font-handwriting text-lg text-warmDark/70 mb-2">
               Hello, {currentUser.name}
             </motion.p>
           )}
 
-          <h1 className="font-serif text-3xl md:text-5xl text-warmDark mb-4">Where do you want to go today?</h1>
-          <p className="font-handwriting text-xl md:text-2xl text-warmDark/70">Choose a memory space to explore</p>
+          <h1 className="font-serif text-3xl md:text-4xl text-warmDark mb-2">Where do you want to go today?</h1>
+          <p className="font-handwriting text-lg md:text-xl text-warmDark/70">Choose a memory space to explore</p>
         </motion.div>
 
-        {/* Space bubbles */}
-        <div ref={spacesContainerRef} className="flex flex-wrap justify-center gap-8 md:gap-10 max-w-5xl mb-12">
-          {visibleSpaces.map((space, i) => {
-            const isOwner = space.createdBy === currentUser?.id
-            const myRole = space.membersList.find((m) => m.userId === currentUser?.id)?.role
-            const isDelConfirm = deleteConfirmId === space.id
+        {/* Space bubbles — floating bubble layout, fills remaining screen height */}
+        <div
+          ref={(el) => {
+            (spacesContainerRef as any).current = el
+            ;(bubbleContainerRef as any).current = el
+          }}
+          className="relative max-w-6xl w-full mx-auto flex-1"
+        >
+          {bubbleLayout.bubbles.map((bp, i) => {
+            const isNewSpace = bp.spaceId === '__new_space__'
+            const space = isNewSpace ? null : visibleSpaces.find(s => s.id === bp.spaceId)
+            if (!isNewSpace && !space) return null
+
+            const diameter = bp.radius * 2
+            const glowColor = space?.coverColor ? getGlowColor(space.coverColor) : 'rgba(212, 165, 116, 0.25)'
+            const glowColorBright = glowColor.replace('0.4)', '0.65)')
+            const isOwner = space ? space.createdBy === currentUser?.id : false
+            const myRole = space?.membersList.find((m) => m.userId === currentUser?.id)?.role
+            const isDelConfirm = space ? deleteConfirmId === space.id : false
+            const isHovered = hoveredBubbleId === bp.spaceId
+            const somethingHovered = hoveredBubbleId !== null
+
+            // "New Space" bubble
+            if (isNewSpace) {
+              return (
+                <motion.div
+                  key="__new_space__"
+                  className="absolute"
+                  style={{
+                    left: `calc(50% + ${bp.x}px - ${bp.radius}px)`,
+                    top: `calc(50% + ${bp.y}px - ${bp.radius}px)`,
+                    width: diameter,
+                    height: diameter,
+                  }}
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{
+                    opacity: somethingHovered && hoveredBubbleId !== '__new_space__' ? 0.6 : 1,
+                    scale: 1,
+                  }}
+                  transition={{
+                    opacity: { duration: 0.3 },
+                    scale: { duration: 0.6, delay: visibleSpaces.length * 0.08, type: 'spring', stiffness: 100 },
+                  }}
+                  onHoverStart={() => setHoveredBubbleId('__new_space__')}
+                  onHoverEnd={() => setHoveredBubbleId(null)}
+                >
+                  <motion.button
+                    whileHover={{ scale: 1.12 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setModal('create')}
+                    className="group rounded-full border-2 border-dashed border-warmMid/25 flex items-center justify-center hover:border-gold/50 transition-colors duration-500"
+                    style={{ width: diameter, height: diameter, boxShadow: '0 0 15px rgba(212, 165, 116, 0.15)' }}
+                  >
+                    <Plus className="w-7 h-7 text-warmDark/50 group-hover:text-gold/60 transition-colors" />
+                  </motion.button>
+                  <p className="text-center mt-2 font-handwriting text-sm text-warmDark/60">New Space</p>
+                </motion.div>
+              )
+            }
+
+            const colorClasses = space!.coverColor
+              ? getColorClasses(space!.coverColor)
+              : defaultSpaceColors[i % defaultSpaceColors.length]
+
             return (
               <motion.div
-                key={space.id}
-                initial={{ opacity: 0, scale: 0.5, y: 30 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: i * 0.1, type: 'spring', stiffness: 100 }}
-                className="flex flex-col items-center"
+                key={space!.id}
+                className="absolute"
+                style={{
+                  left: `calc(50% + ${bp.x}px - ${bp.radius}px)`,
+                  top: `calc(50% + ${bp.y}px - ${bp.radius}px)`,
+                  width: diameter,
+                  height: diameter,
+                  zIndex: isHovered ? 10 : 1,
+                }}
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{
+                  opacity: somethingHovered && !isHovered ? 0.65 : 1,
+                  scale: 1,
+                }}
+                transition={{
+                  opacity: { duration: 0.3 },
+                  scale: { duration: 0.6, delay: i * 0.08, type: 'spring', stiffness: 100 },
+                }}
+                onHoverStart={() => setHoveredBubbleId(space!.id)}
+                onHoverEnd={() => setHoveredBubbleId(null)}
               >
-                <div className="relative">
+                <div className="relative" style={{ width: diameter, height: diameter }}>
                   <motion.button
-                    whileHover={editPageMode ? {} : { scale: 1.08, y: -8 }}
+                    whileHover={editPageMode ? {} : { scale: 1.12 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => editPageMode ? undefined : setActiveSpace(space.id)}
-                    className={`group flex flex-col items-center relative ${editPageMode ? 'cursor-default' : ''}`}
+                    onClick={() => editPageMode ? undefined : setActiveSpace(space!.id)}
+                    className={`group relative ${editPageMode ? 'cursor-default' : 'cursor-pointer'}`}
+                    style={{ width: diameter, height: diameter }}
                     animate={editPageMode ? { rotate: [0, -2, 2, -1, 1, 0] } : { rotate: 0 }}
                     transition={editPageMode ? { repeat: Infinity, duration: 0.6, repeatDelay: 0.1 } : {}}
                   >
-                    <div className={`w-28 h-28 md:w-36 md:h-36 rounded-full bg-gradient-to-br ${space.coverColor ? getColorClasses(space.coverColor) : defaultSpaceColors[i % defaultSpaceColors.length]}
-                      flex items-center justify-center shadow-lg transition-shadow duration-500
-                      border border-white/50 relative overflow-hidden ${!editPageMode ? 'group-hover:shadow-2xl' : ''}`}>
+                    <motion.div
+                      className={`rounded-full bg-gradient-to-br ${colorClasses}
+                        flex items-center justify-center border border-white/50 relative overflow-hidden`}
+                      style={{ width: diameter, height: diameter }}
+                      animate={{
+                        boxShadow: [
+                          `0 0 ${isMobile ? 15 : 20}px ${glowColor}`,
+                          `0 0 ${isMobile ? 25 : 35}px ${glowColorBright}`,
+                          `0 0 ${isMobile ? 15 : 20}px ${glowColor}`,
+                        ],
+                      }}
+                      whileHover={{
+                        boxShadow: `0 0 ${isMobile ? 35 : 50}px ${glowColorBright}`,
+                      }}
+                      transition={{
+                        boxShadow: { duration: 3 + (i % 3), repeat: Infinity, ease: 'easeInOut' },
+                      }}
+                    >
                       <div className={`absolute inset-0 bg-white/20 transition-opacity duration-500 ${!editPageMode ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'}`} />
-                      {space.coverIcon ? (
-                        <SpaceIconRenderer iconId={space.coverIcon} size="lg" />
+                      {space!.coverIcon ? (
+                        <SpaceIconRenderer iconId={space!.coverIcon} size="lg" />
                       ) : (
-                        <span className="text-4xl md:text-5xl relative z-10">{space.coverEmoji}</span>
+                        <span className="relative z-10" style={{ fontSize: diameter * 0.35 }}>{space!.coverEmoji}</span>
                       )}
-                    </div>
+                    </motion.div>
                   </motion.button>
 
                   {/* Edit mode overlays */}
                   {editPageMode && isOwner && (
                     <>
                       <button
-                        onClick={() => openEditSpace(space)}
+                        onClick={() => openEditSpace(space!)}
                         className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-warmDark/70 hover:text-warmDark transition-colors z-10 border border-warmMid/10"
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
                       {!isDelConfirm ? (
                         <button
-                          onClick={() => setDeleteConfirmId(space.id)}
+                          onClick={() => setDeleteConfirmId(space!.id)}
                           className="absolute -top-1 -left-1 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-coral/60 hover:text-coral transition-colors z-10 border border-warmMid/10"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -469,7 +580,7 @@ export default function SpaceSelector() {
                       ) : (
                         <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-lg px-3 py-2 flex items-center gap-2 z-20 whitespace-nowrap border border-warmMid/10">
                           <span className="text-sm text-warmDark/70 font-sans">Delete?</span>
-                          <button onClick={() => handleDeleteSpace(space.id)} className="text-sm text-coral font-medium hover:text-coral/70">Yes</button>
+                          <button onClick={() => handleDeleteSpace(space!.id)} className="text-sm text-coral font-medium hover:text-coral/70">Yes</button>
                           <button onClick={() => setDeleteConfirmId(null)} className="text-sm text-warmDark/75 hover:text-warmDark/70">No</button>
                         </div>
                       )}
@@ -477,55 +588,34 @@ export default function SpaceSelector() {
                   )}
                 </div>
 
-                <div className="mt-3 text-center">
-                  <h3 className="font-serif text-base md:text-lg text-warmDark font-medium">{space.title}</h3>
+                {/* Labels below bubble */}
+                <div className="absolute text-center" style={{
+                  top: diameter + 6,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: Math.max(diameter + 20, 80),
+                }}>
+                  <h3 className="font-serif text-warmDark font-medium truncate" style={{ fontSize: Math.max(11, Math.min(14, diameter * 0.13)) }}>
+                    {space!.title}
+                  </h3>
                   {(() => {
-                    const visibleCount = space.memories?.length
-                      ? space.memories.filter((m) => {
+                    const visibleCount = space!.memories?.length
+                      ? space!.memories.filter((m) => {
                           if (!m.visibleTo || m.visibleTo.length === 0) return true
                           if (m.createdBy === currentUser?.id) return true
                           return currentUser ? m.visibleTo.includes(currentUser.id) : false
                         }).length
-                      : space.memoryCount
+                      : space!.memoryCount
                     return (
-                      <p className="font-handwriting text-warmDark/70 text-base">
+                      <p className="font-handwriting text-warmDark/60" style={{ fontSize: Math.max(10, Math.min(12, diameter * 0.11)) }}>
                         {visibleCount} {visibleCount === 1 ? 'memory' : 'memories'}
                       </p>
                     )
                   })()}
-                  {space.type === 'group' && (
-                    <button
-                      onClick={() => { if (!editPageMode) { setViewingSpaceId(space.id); setModal('members') } }}
-                      className="flex items-center gap-1 mx-auto mt-1 text-sm text-warmDark/75 hover:text-warmDark/80 transition-colors"
-                    >
-                      <Users className="w-3 h-3" />
-                      <span>{space.membersList.filter((m) => m.status === 'active').length} members</span>
-                      {isOwner && <Crown className="w-3 h-3 text-gold/60" />}
-                    </button>
-                  )}
-                  {space.type === 'group' && myRole && myRole !== 'owner' && (
-                    <p className="text-sm text-warmDark/70 mt-0.5">{myRole === 'admin' ? 'Admin' : 'Member'}</p>
-                  )}
                 </div>
               </motion.div>
             )
           })}
-
-          {/* Create new */}
-          <motion.button
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: visibleSpaces.length * 0.1 }}
-            whileHover={{ scale: 1.08, y: -8 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setModal('create')}
-            className="group flex flex-col items-center"
-          >
-            <div className="w-28 h-28 md:w-36 md:h-36 rounded-full border-2 border-dashed border-warmMid/25 flex items-center justify-center group-hover:border-gold/50 transition-colors duration-500">
-              <Plus className="w-8 h-8 text-warmDark/70 group-hover:text-gold/60 transition-colors" />
-            </div>
-            <p className="mt-3 font-handwriting text-base text-warmDark/75 group-hover:text-warmDark/70 transition-colors">New Space</p>
-          </motion.button>
         </div>
 
       </div>

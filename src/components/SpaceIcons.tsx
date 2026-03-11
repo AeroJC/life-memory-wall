@@ -3820,6 +3820,25 @@ export function getColorClasses(colorId: string): string {
   return color?.classes || iconColors[0].classes
 }
 
+const glowColorMap: Record<string, string> = {
+  'purple-pink': 'rgba(196, 181, 253, 0.4)',
+  'amber-orange': 'rgba(253, 230, 138, 0.4)',
+  'teal-cyan': 'rgba(153, 246, 228, 0.4)',
+  'rose-red': 'rgba(254, 205, 211, 0.4)',
+  'indigo-blue': 'rgba(199, 210, 254, 0.4)',
+  'lime-emerald': 'rgba(217, 249, 157, 0.4)',
+  'peach-cream': 'rgba(255, 228, 204, 0.4)',
+  'lavender': 'rgba(221, 214, 254, 0.4)',
+  'sage-mint': 'rgba(209, 250, 229, 0.4)',
+  'blush': 'rgba(255, 228, 230, 0.4)',
+  'golden': 'rgba(254, 243, 199, 0.4)',
+  'sky': 'rgba(186, 230, 253, 0.4)',
+}
+
+export function getGlowColor(colorId: string): string {
+  return glowColorMap[colorId] || 'rgba(212, 165, 116, 0.3)'
+}
+
 // === TAGLINES ===
 
 export const iconTaglines: Record<string, string[]> = {
