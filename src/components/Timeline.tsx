@@ -1,7 +1,7 @@
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Users, Send, Check, Mail, Loader2, X, UserMinus, LogOut } from 'lucide-react'
 import { SpaceIconRenderer } from './SpaceIcons'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
 import { api } from '../api'
 import { Memory, SubStory, SpacePendingInvite } from '../types'
@@ -19,11 +19,36 @@ export default function Timeline() {
     () => localStorage.getItem('selectedMemoryId')
   )
 
+  const skipMemoryPush = useRef(false)
+
   const setSelectedMemoryId = (id: string | null) => {
     setSelectedMemoryIdRaw(id)
-    if (id) localStorage.setItem('selectedMemoryId', id)
-    else localStorage.removeItem('selectedMemoryId')
+    if (id) {
+      localStorage.setItem('selectedMemoryId', id)
+      if (!skipMemoryPush.current) {
+        window.history.pushState({ view: 'memory', memoryId: id }, '')
+      }
+    } else {
+      localStorage.removeItem('selectedMemoryId')
+    }
+    skipMemoryPush.current = false
   }
+
+  // Browser back button within timeline (memory → timeline list)
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const state = e.state
+      if (state?.view === 'memory') {
+        skipMemoryPush.current = true
+        setSelectedMemoryId(state.memoryId)
+      } else if (state?.view === 'timeline') {
+        skipMemoryPush.current = true
+        setSelectedMemoryId(null)
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   const [showMembers, setShowMembers] = useState(false)
   const [membersTab, setMembersTab] = useState<'members' | 'invites'>('members')

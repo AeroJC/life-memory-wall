@@ -10,11 +10,44 @@ const INACTIVITY_MS = 5 * 60 * 1000 // 5 minutes
 export default function App() {
   const { isLoggedIn, initialized, activeSpaceId, init, logout } = useStore()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const skipNextPush = useRef(false)
 
   // Restore session on mount
   useEffect(() => {
     init()
   }, [])
+
+  // Push browser history when activeSpaceId changes
+  useEffect(() => {
+    if (!initialized || !isLoggedIn) return
+    if (skipNextPush.current) {
+      skipNextPush.current = false
+      return
+    }
+    if (activeSpaceId) {
+      window.history.pushState({ view: 'timeline', spaceId: activeSpaceId }, '')
+    }
+  }, [activeSpaceId, initialized, isLoggedIn])
+
+  // Listen to browser back/forward
+  useEffect(() => {
+    if (!initialized || !isLoggedIn) return
+
+    const handlePopState = (e: PopStateEvent) => {
+      const state = e.state
+      if (state?.view === 'timeline' && state.spaceId) {
+        skipNextPush.current = true
+        useStore.getState().setActiveSpace(state.spaceId)
+      } else {
+        // Back to spaces page
+        skipNextPush.current = true
+        useStore.getState().setActiveSpace(null)
+      }
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [initialized, isLoggedIn])
 
   // Inactivity auto-logout
   useEffect(() => {
