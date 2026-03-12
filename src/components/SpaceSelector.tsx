@@ -61,7 +61,12 @@ export default function SpaceSelector() {
   const [newColor, setNewColor] = useState('purple-pink')
   const [newDescription, setNewDescription] = useState(randomTaglineForIcon('couple'))
   const [newType, setNewType] = useState<'personal' | 'group'>('personal')
-  const [createStep, setCreateStep] = useState<'type' | 'design'>('type')
+  const [createStep, setCreateStep] = useState<'type' | 'design' | 'invite'>('type')
+  const [createdSpaceId, setCreatedSpaceId] = useState<string | null>(null)
+  const [inviteInput, setInviteInput] = useState('')
+  const [invitedEmails, setInvitedEmails] = useState<string[]>([])
+  const [inviteStatus, setInviteStatus] = useState<{ email: string; ok: boolean; msg: string } | null>(null)
+  const [inviting, setInviting] = useState(false)
   const [viewingSpaceId, setViewingSpaceId] = useState<string | null>(null)
 
   // Edit-mode for spaces page
@@ -71,7 +76,9 @@ export default function SpaceSelector() {
   useEffect(() => {
     if (!editPageMode) return
     const handleMouseDown = (e: MouseEvent) => {
-      if (spacesContainerRef.current && !spacesContainerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      const insideModal = (target as Element).closest?.('[data-modal]')
+      if (spacesContainerRef.current && !spacesContainerRef.current.contains(target) && !insideModal) {
         setEditPageMode(false)
         setDeleteConfirmId(null)
       }
@@ -146,13 +153,22 @@ export default function SpaceSelector() {
       memories: [],
     }
     try {
-      await addSpace(space)
+      const newSpaceId = await addSpace(space)
       setNewTitle('')
       setNewIcon('couple')
       setNewIconVariation(0)
       setNewColor('purple-pink')
       setNewDescription(randomTaglineForIcon('couple'))
-      setModal('none')
+      if (newType === 'group' && newSpaceId) {
+        setCreatedSpaceId(newSpaceId)
+        setInvitedEmails([])
+        setInviteInput('')
+        setInviteStatus(null)
+        setCreateStep('invite')
+      } else {
+        setModal('none')
+        if (newSpaceId) setActiveSpace(newSpaceId)
+      }
     } finally {
       setCreating(false)
     }
@@ -185,6 +201,27 @@ export default function SpaceSelector() {
     const iconId = makeIconId(editIcon, editIconVariation)
     await updateSpace(editingSpaceId, { title: editTitle.trim(), coverIcon: iconId, coverColor: editColor, description: editDescription.trim() || undefined })
     setModal('none'); setEditingSpaceId(null); setEditPageMode(false)
+  }
+
+  const sendInvite = async () => {
+    if (!inviteInput.trim() || !createdSpaceId) return
+    const email = inviteInput.trim()
+    if (!email.includes('@')) {
+      setInviteStatus({ email, ok: false, msg: 'Please enter a valid email address' })
+      return
+    }
+    setInviting(true)
+    setInviteStatus(null)
+    try {
+      await api.inviteByEmail(createdSpaceId, email)
+      setInvitedEmails((prev) => [...prev, email])
+      setInviteInput('')
+      setInviteStatus({ email, ok: true, msg: `Invite sent to ${email}` })
+    } catch {
+      setInviteStatus({ email, ok: false, msg: `Couldn't send invite to ${email}` })
+    } finally {
+      setInviting(false)
+    }
   }
 
   const handleDeleteSpace = async (spaceId: string) => {
@@ -224,6 +261,10 @@ export default function SpaceSelector() {
     setShowProfileMenu(false)
     setRemovingMemberId(null); setLeaveConfirm(false); setMemberActionError('')
     setCreateStep('type')
+    setCreatedSpaceId(null)
+    setInviteInput('')
+    setInvitedEmails([])
+    setInviteStatus(null)
     setCreateError('')
     setEditError('')
   }
@@ -788,6 +829,72 @@ export default function SpaceSelector() {
                 </>
               )}
 
+              {/* CREATE — Step 3: Invite friends (group only) */}
+              {modal === 'create' && createStep === 'invite' && (
+                <>
+                  <div className="flex flex-col items-center mb-6">
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gold/30 to-coral/30 flex items-center justify-center mb-3">
+                      <Users className="w-7 h-7 text-gold/80" />
+                    </div>
+                    <h2 className="font-serif text-2xl text-warmDark">Invite friends</h2>
+                    <p className="font-sans text-sm text-warmDark/55 mt-1 text-center">Share this space with people you love</p>
+                  </div>
+
+                  {/* Email input */}
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="email"
+                      value={inviteInput}
+                      onChange={(e) => { setInviteInput(e.target.value); setInviteStatus(null) }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sendInvite() } }}
+                      placeholder="friend@email.com"
+                      className="flex-1 bg-white/50 rounded-xl px-4 py-3 text-warmDark font-sans outline-none focus:ring-2 focus:ring-gold/30 transition-all text-sm"
+                    />
+                    <button
+                      onClick={sendInvite}
+                      disabled={inviting || !inviteInput.trim()}
+                      className="px-4 py-3 rounded-xl bg-gradient-to-r from-gold/80 to-coral/80 text-white font-medium disabled:opacity-50 flex items-center gap-1.5 transition-all hover:shadow-md"
+                    >
+                      {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                      <span className="text-sm">Send</span>
+                    </button>
+                  </div>
+
+                  {/* Status message */}
+                  <AnimatePresence>
+                    {inviteStatus && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        className={`text-sm font-sans mb-3 ${inviteStatus.ok ? 'text-emerald-600/80' : 'text-red-500/80'}`}
+                      >
+                        {inviteStatus.msg}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Invited emails list */}
+                  {invitedEmails.length > 0 && (
+                    <div className="mb-4 space-y-1.5">
+                      {invitedEmails.map((email) => (
+                        <div key={email} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50/60 border border-emerald-200/40">
+                          <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                          <span className="text-sm font-sans text-warmDark/70 truncate">{email}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => { setModal('none'); setCreateStep('type'); if (createdSpaceId) setActiveSpace(createdSpaceId) }}
+                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-gold/80 to-coral/80 text-white font-medium transition-all hover:shadow-md"
+                    >
+                      {invitedEmails.length > 0 ? 'Open Space' : 'Skip for now'}
+                    </button>
+                  </div>
+                </>
+              )}
+
               {/* EDIT SPACE */}
               {modal === 'edit-space' && editingSpace && (
                 <>
@@ -1090,6 +1197,7 @@ export default function SpaceSelector() {
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               transition={{ type: 'spring', stiffness: 200, damping: 20 }}
               className="glass rounded-3xl p-8 w-full max-w-sm relative z-10"
+              data-modal="delete-confirm"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Warning icon */}

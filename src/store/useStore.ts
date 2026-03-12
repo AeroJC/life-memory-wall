@@ -31,7 +31,7 @@ interface AppState {
   addSubstory: (spaceId: string, memoryId: string, substory: SubStory) => Promise<void>
   updateMemorySubstories: (spaceId: string, memoryId: string, substories: SubStory[]) => void
 
-  addSpace: (space: MemorySpace) => Promise<void>
+  addSpace: (space: MemorySpace) => Promise<string | null>
   updateSpace: (spaceId: string, data: { title?: string; coverEmoji?: string; coverIcon?: string; coverColor?: string; description?: string }) => Promise<void>
   deleteSpace: (spaceId: string) => Promise<void>
   updateSubstory: (spaceId: string, memoryId: string, substoryId: string, data: Partial<SubStory>) => Promise<void>
@@ -244,7 +244,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   addSpace: async (space) => {
     try {
-      await api.createSpace({
+      const created = await api.createSpace({
         title: space.title,
         coverEmoji: space.coverEmoji,
         coverIcon: space.coverIcon,
@@ -253,8 +253,10 @@ export const useStore = create<AppState>((set, get) => ({
         description: space.description,
       })
       await get().fetchSpaces()
+      return created?.id ?? null
     } catch (err) {
       console.error('Failed to create space:', err)
+      return null
     }
   },
 
