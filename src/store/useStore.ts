@@ -31,7 +31,7 @@ interface AppState {
   addSubstory: (spaceId: string, memoryId: string, substory: SubStory) => Promise<void>
   updateMemorySubstories: (spaceId: string, memoryId: string, substories: SubStory[]) => void
 
-  addSpace: (space: MemorySpace) => Promise<void>
+  addSpace: (space: MemorySpace) => Promise<string | null>
   updateSpace: (spaceId: string, data: { title?: string; coverEmoji?: string; coverIcon?: string; coverColor?: string; description?: string }) => Promise<void>
   deleteSpace: (spaceId: string) => Promise<void>
   updateSubstory: (spaceId: string, memoryId: string, substoryId: string, data: Partial<SubStory>) => Promise<void>
