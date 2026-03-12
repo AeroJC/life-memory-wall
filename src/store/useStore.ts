@@ -249,6 +249,7 @@ export const useStore = create<AppState>((set, get) => ({
         coverEmoji: space.coverEmoji,
         coverIcon: space.coverIcon,
         coverColor: space.coverColor,
+        coverImage: space.coverImage,
         type: space.type,
         description: space.description,
       })
