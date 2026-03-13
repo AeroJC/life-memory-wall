@@ -74,7 +74,7 @@ export default function Timeline() {
   const sortedMemories = useMemo(
     () => [...visibleMemories].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [space?.id, visibleMemories.length, JSON.stringify(visibleMemories.map(m => m.id + m.date))]
+    [space?.id, visibleMemories.length, JSON.stringify(visibleMemories.map(m => m.id + m.date + (m.substories?.length ?? 0)))]
   )
 
   // If restored selectedMemoryId no longer exists in this space, clear it
