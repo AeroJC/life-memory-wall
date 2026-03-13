@@ -305,22 +305,24 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
                   </AnimatePresence>
                 </div>
 
-                {/* Photo upload */}
+                {/* Photo upload — max 1 cover photo */}
                 <div>
                   <label className="font-handwriting text-warmDark/75 text-xl block mb-2">
-                    Add photos
+                    Add cover photo
                   </label>
                   <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
-                    multiple
                     className="hidden"
-                    onChange={(e) => handleFiles(Array.from(e.target.files || []))}
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []).slice(0, 1)
+                      if (files.length > 0) handleFiles(files)
+                    }}
                   />
-                  {photos.length > 0 && (
+                  {photos.length > 0 ? (
                     <div className="grid grid-cols-3 gap-2 mb-3">
-                      {photos.map((url, i) => (
+                      {photos.slice(0, 1).map((url, i) => (
                         <div key={i} className="relative group aspect-square rounded-xl overflow-hidden">
                           <img src={url} alt="" className="w-full h-full object-cover" />
                           <button
@@ -333,8 +335,7 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
                         </div>
                       ))}
                     </div>
-                  )}
-                  {uploading ? (
+                  ) : uploading ? (
                     <div className="flex items-center justify-center gap-2 text-warmDark/75 py-4">
                       <Loader2 className="w-5 h-5 animate-spin" />
                       <span className="text-sm">Uploading...</span>

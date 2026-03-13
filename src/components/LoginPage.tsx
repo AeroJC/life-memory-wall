@@ -477,6 +477,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen gradient-bg flex items-center justify-center relative overflow-hidden">
+
       <ParticleBackground />
 
       <motion.div

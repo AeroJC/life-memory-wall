@@ -6,7 +6,7 @@ import { useStore } from '../store/useStore'
 import { api } from '../api'
 import { Memory, SubStory, SpacePendingInvite } from '../types'
 import MemoryCard from './MemoryCard'
-import MemoryDetail from './MemoryDetail'
+import MemoryDetail from './MemoryDetailC'
 import CreateMemoryModal from './CreateMemoryModal'
 import FloatingNav from './FloatingNav'
 
@@ -117,14 +117,19 @@ export default function Timeline() {
     )
   }
 
-  const selectedMemory = sortedMemories.find((m) => m.id === selectedMemoryId) || null
+  // Use visibleMemories (not memoized sortedMemories) so substory changes are reflected immediately
+  const selectedMemory = visibleMemories.find((m) => m.id === selectedMemoryId) || null
   const isDetailOpen = selectedMemory !== null
 
-  const handleSave = (memory: Memory) => {
-    if (editingMemory) {
-      updateMemory(space.id, memory.id, memory)
-    } else {
-      addMemory(space.id, memory)
+  const handleSave = async (memory: Memory) => {
+    try {
+      if (editingMemory) {
+        await updateMemory(space.id, memory.id, memory)
+      } else {
+        await addMemory(space.id, memory)
+      }
+    } catch (err) {
+      console.error('Failed to save memory:', err)
     }
     setEditingMemory(null)
   }

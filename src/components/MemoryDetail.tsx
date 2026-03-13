@@ -223,7 +223,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -56, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-            className="sticky top-0 z-10 rounded-b-3xl border-b border-warmMid/10 px-5 pt-3 pb-2.5"
+            className={`sticky top-0 z-10 rounded-b-3xl border-b border-warmMid/10 px-5 pb-2.5 ${!coverPhoto ? 'pt-4' : 'pt-3'}`}
             style={{ background: 'linear-gradient(-45deg, #f0e6ff, #ffe8d6, #e8f0ff, #fff0e8)', backgroundSize: '400% 400%' }}
           >
         <div className="flex items-start justify-between gap-3">
