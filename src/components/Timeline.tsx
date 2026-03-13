@@ -77,6 +77,26 @@ export default function Timeline() {
     [space?.id, visibleMemories.length, JSON.stringify(visibleMemories.map(m => m.id + m.date + (m.substories?.length ?? 0)))]
   )
 
+  const timelineStats = useMemo(() => {
+    if (sortedMemories.length === 0) return null
+    const first = new Date(sortedMemories[0].date + 'T00:00:00')
+    const last = new Date(sortedMemories[sortedMemories.length - 1].date + 'T00:00:00')
+    const msPerYear = 1000 * 60 * 60 * 24 * 365.25
+    const diff = last.getTime() - first.getTime()
+    const years = diff / msPerYear
+    let span: string
+    if (sortedMemories.length === 1 || diff < 1000 * 60 * 60 * 24 * 30) {
+      span = first.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    } else if (years < 1) {
+      const months = Math.round(diff / (1000 * 60 * 60 * 24 * 30.5))
+      span = `${months} month${months !== 1 ? 's' : ''}`
+    } else {
+      const y = parseFloat(years.toFixed(1))
+      span = `${y} year${y !== 1 ? 's' : ''}`
+    }
+    return { span, count: sortedMemories.length, firstYear: first.getFullYear() }
+  }, [sortedMemories])
+
   // If restored selectedMemoryId no longer exists in this space, clear it
   useEffect(() => {
     if (selectedMemoryId && sortedMemories.length > 0) {
@@ -570,6 +590,30 @@ const loadPendingInvites = async () => {
             <p className="font-sans text-sm text-warmDark/75 mt-2">
               with {space.membersList.filter((m) => m.status === 'active').map((m) => m.name).join(', ')}
             </p>
+          )}
+
+          {/* Timeline stats */}
+          {timelineStats && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="flex items-center justify-center gap-6 mt-5"
+            >
+              <div className="flex flex-col items-center gap-0.5">
+                <span className="font-serif text-2xl text-warmDark">{timelineStats.count}</span>
+                <span className="font-sans text-xs text-warmDark/50 uppercase tracking-wide">
+                  {timelineStats.count === 1 ? 'memory' : 'memories'}
+                </span>
+              </div>
+              <div className="w-px h-8 bg-warmDark/15" />
+              <div className="flex flex-col items-center gap-0.5">
+                <span className="font-serif text-2xl text-warmDark">{timelineStats.span}</span>
+                <span className="font-sans text-xs text-warmDark/50 uppercase tracking-wide">
+                  {timelineStats.count === 1 ? 'since ' + timelineStats.firstYear : 'together'}
+                </span>
+              </div>
+            </motion.div>
           )}
         </motion.div>
       )}
