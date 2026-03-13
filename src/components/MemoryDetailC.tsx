@@ -1,9 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, Plus, Image, BookOpen, Camera, Images, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, Check, MoreVertical, Play, Pause } from 'lucide-react'
+import { MapPin, Plus, Image, BookOpen, Camera, Images, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, Check, MoreVertical, Play, Pause, Crop } from 'lucide-react'
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Memory, SubStory } from '../types'
 import { uploadMultipleImages } from '../cloudinary'
 import RichTextEditor from './RichTextEditor'
+import ImageCropper from './ImageCropper'
 
 interface Props {
   memory: Memory
@@ -72,6 +73,8 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
   const [editType, setEditType] = useState<SubStory['type']>('text')
   const [editPhotos, setEditPhotos] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)       // image URL being cropped
+  const [cropIndex, setCropIndex] = useState<number | null>(null)    // index in editPhotos to replace
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const editFileInputRef = useRef<HTMLInputElement>(null)
@@ -105,6 +108,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
   const resetEdit = () => {
     setEditTitle(''); setEditContent(''); setEditPhotos([])
     setEditType('text'); setExpandedId(null); setShowAddForm(false)
+    setCropSrc(null); setCropIndex(null)
     setMenuOpenId(null); setDeleteConfirmId(null)
   }
 
@@ -430,84 +434,167 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
     </div>
   )
 
-  /** The edit form (used both for editing existing substories and adding new ones) — called as a function, NOT as <EditForm/>, to avoid remount on every re-render */
-  const renderEditForm = (isNew: boolean) => {
-    const inputRefToUse = isNew ? fileInputRef : editFileInputRef
+  /** Photo zone — upload area or photo preview */
+  const renderPhotoZone = (inputRefToUse: React.RefObject<HTMLInputElement>, isGrid?: boolean) => {
+    const maxPhotos = editType === 'photos' ? 4 : 1
+    const atLimit = editPhotos.length >= maxPhotos
     return (
-      <div className="space-y-3">
-        {/* Compact layout picker row */}
-        <div>
-          <div className="grid grid-cols-6 gap-1.5">
-            {layoutOptions.map(({ type, preview }) => (
-              <button
-                key={type}
-                onClick={() => setEditType(type)}
-                className={`flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-all ${editType === type ? 'border-gold/50 bg-gold/10 ring-1 ring-gold/25' : 'border-warmMid/10 hover:border-warmMid/20 hover:bg-white/20'}`}
-              >
-                <div className="w-full h-7 flex items-center justify-center">{preview}</div>
-              </button>
+      <div className="h-full flex flex-col">
+        <input ref={inputRefToUse} type="file" accept="image/*" multiple={editType === 'photos'} className="hidden"
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []).slice(0, maxPhotos - editPhotos.length)
+            if (files.length > 0) handlePhotoFiles(files, setEditPhotos, inputRefToUse)
+          }} />
+        {editPhotos.length > 0 ? (
+          <div className={`flex-1 ${isGrid ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
+            {editPhotos.map((url, pi) => (
+              <div key={pi} className="relative group/photo rounded-xl overflow-hidden flex-1 min-h-0">
+                <img src={url} alt="" className="w-full h-full object-contain bg-black/5 rounded-xl" />
+                <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover/photo:opacity-100 transition-opacity">
+                  <button type="button" onClick={() => { setCropSrc(url); setCropIndex(pi) }}
+                    className="w-6 h-6 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
+                    title="Crop">
+                    <Crop className="w-3 h-3 text-white" />
+                  </button>
+                  <button type="button" onClick={() => setEditPhotos((p) => p.filter((_, idx) => idx !== pi))}
+                    className="w-6 h-6 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
+                    title="Remove">
+                    <X className="w-3 h-3 text-white" />
+                  </button>
+                </div>
+              </div>
             ))}
+            {!atLimit && !uploading && (
+              <button type="button" onClick={() => inputRefToUse.current?.click()}
+                className="border-2 border-dashed border-warmMid/20 rounded-xl flex items-center justify-center gap-1.5 hover:border-gold/30 transition-colors min-h-[60px]">
+                <Plus className="w-4 h-4 text-warmDark/50" />
+              </button>
+            )}
           </div>
-        </div>
+        ) : uploading ? (
+          <div className="flex-1 flex items-center justify-center gap-2 text-warmDark/75">
+            <Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">Uploading...</span>
+          </div>
+        ) : (
+          <button type="button" onClick={() => inputRefToUse.current?.click()}
+            className="flex-1 border-2 border-dashed border-warmMid/20 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-gold/30 hover:bg-gold/5 transition-all min-h-[120px]">
+            <div className="w-10 h-10 rounded-full bg-warmMid/10 flex items-center justify-center">
+              <Upload className="w-5 h-5 text-warmDark/50" />
+            </div>
+            <span className="text-sm text-warmDark/50 font-sans">Add photo</span>
+          </button>
+        )}
+      </div>
+    )
+  }
 
-        <input
-          type="text"
-          value={editTitle}
-          onChange={(e) => setEditTitle(e.target.value)}
-          placeholder={isNew ? 'Title for this moment...' : 'Title...'}
-          className="w-full font-serif text-base text-warmDark bg-transparent border-b border-warmMid/10 pb-2 outline-none focus:border-gold/40 transition-colors placeholder:text-warmDark/70"
-        />
-
+  /** Text zone — title + rich text editor */
+  const renderTextZone = (isNew: boolean) => (
+    <div className="flex flex-col gap-2 h-full">
+      <input
+        type="text"
+        value={editTitle}
+        onChange={(e) => setEditTitle(e.target.value)}
+        placeholder={isNew ? 'Title...' : 'Title...'}
+        className="w-full font-serif text-lg text-warmDark bg-transparent border-b border-warmMid/10 pb-2 outline-none focus:border-gold/40 transition-colors placeholder:text-warmDark/30"
+      />
+      <div className="flex-1 min-h-0">
         <RichTextEditor
           value={editContent}
           onChange={setEditContent}
           placeholder={editType === 'text' ? 'Write your story...' : 'Caption...'}
         />
+      </div>
+    </div>
+  )
 
-        {editType !== 'text' && (() => {
-          const maxPhotos = editType === 'photos' ? 4 : 1
-          const atLimit = editPhotos.length >= maxPhotos
-          return (
-          <div>
-            <input ref={inputRefToUse} type="file" accept="image/*" multiple={editType === 'photos'} className="hidden"
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []).slice(0, maxPhotos - editPhotos.length)
-                if (files.length > 0) handlePhotoFiles(files, setEditPhotos, inputRefToUse)
-              }} />
-            {editPhotos.length > 0 && (
-              <div className="grid grid-cols-3 gap-1.5 mb-2">
-                {editPhotos.map((url, pi) => (
-                  <div key={pi} className="relative group/photo aspect-square rounded-lg overflow-hidden">
-                    <img src={url} alt="" className="w-full h-full object-cover" />
-                    <button type="button" onClick={() => setEditPhotos((p) => p.filter((_, idx) => idx !== pi))}
-                      className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity">
-                      <X className="w-3 h-3 text-white" />
-                    </button>
-                  </div>
-                ))}
+  /** The edit form — live template preview layout */
+  const renderEditForm = (isNew: boolean) => {
+    const inputRefToUse = isNew ? fileInputRef : editFileInputRef
+    return (
+      <div className="space-y-3">
+        {/* Layout picker row */}
+        <div className="grid grid-cols-6 gap-1.5">
+          {layoutOptions.map(({ type, preview }) => (
+            <button
+              key={type}
+              onClick={() => setEditType(type)}
+              className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${editType === type ? 'border-gold/50 bg-gold/10 ring-1 ring-gold/25' : 'border-warmMid/10 hover:border-warmMid/20 hover:bg-white/20'}`}
+            >
+              <div className="w-full h-8 flex items-center justify-center">{preview}</div>
+              <span className="text-[10px] text-warmDark/40 font-sans leading-tight">
+                {type === 'text' ? 'Text' : type === 'img-left' ? 'Left' : type === 'img-right' ? 'Right' : type === 'img-top' ? 'Top' : type === 'img-bottom' ? 'Bottom' : 'Grid'}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Live template preview — layout matches selected type */}
+        <div className="rounded-2xl border border-warmMid/10 bg-white/40 overflow-hidden">
+          {editType === 'text' && (
+            <div className="p-4">
+              {renderTextZone(isNew)}
+            </div>
+          )}
+
+          {editType === 'img-left' && (
+            <div className="flex gap-0 min-h-[220px]">
+              <div className="w-1/2 p-3 border-r border-warmMid/10">
+                {renderPhotoZone(inputRefToUse)}
               </div>
-            )}
-            {uploading
-              ? <div className="flex items-center justify-center gap-2 text-warmDark/75 py-2"><Loader2 className="w-4 h-4 animate-spin" /><span className="text-sm">Uploading...</span></div>
-              : !atLimit && (
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button type="button" onClick={() => inputRefToUse.current?.click()}
-                    className="border border-dashed border-warmMid/15 rounded-xl p-2.5 flex items-center justify-center gap-1.5 hover:border-gold/25 transition-colors">
-                    <Upload className="w-3.5 h-3.5 text-warmDark/70" /><span className="text-sm text-warmDark/70">From Device</span>
-                  </button>
-                  <button type="button" onClick={() => inputRefToUse.current?.click()}
-                    className="border border-dashed border-warmMid/15 rounded-xl p-2.5 flex items-center justify-center gap-1.5 hover:border-gold/25 transition-colors">
-                    <Images className="w-3.5 h-3.5 text-warmDark/70" /><span className="text-sm text-warmDark/70">Google Photos</span>
-                  </button>
-                </div>
-              )
-            }
-          </div>
-          )
-        })()}
+              <div className="w-1/2 p-3">
+                {renderTextZone(isNew)}
+              </div>
+            </div>
+          )}
 
-        {/* Floating action bar at bottom */}
-        <div className="flex gap-2 pt-2 border-t border-warmMid/10">
+          {editType === 'img-right' && (
+            <div className="flex gap-0 min-h-[220px]">
+              <div className="w-1/2 p-3 border-r border-warmMid/10">
+                {renderTextZone(isNew)}
+              </div>
+              <div className="w-1/2 p-3">
+                {renderPhotoZone(inputRefToUse)}
+              </div>
+            </div>
+          )}
+
+          {editType === 'img-top' && (
+            <div className="flex flex-col">
+              <div className="p-3 border-b border-warmMid/10 min-h-[160px]">
+                {renderPhotoZone(inputRefToUse)}
+              </div>
+              <div className="p-3">
+                {renderTextZone(isNew)}
+              </div>
+            </div>
+          )}
+
+          {editType === 'img-bottom' && (
+            <div className="flex flex-col">
+              <div className="p-3 border-b border-warmMid/10">
+                {renderTextZone(isNew)}
+              </div>
+              <div className="p-3 min-h-[160px]">
+                {renderPhotoZone(inputRefToUse)}
+              </div>
+            </div>
+          )}
+
+          {editType === 'photos' && (
+            <div className="flex flex-col">
+              <div className="p-3 border-b border-warmMid/10">
+                {renderTextZone(isNew)}
+              </div>
+              <div className="p-3 min-h-[160px]">
+                {renderPhotoZone(inputRefToUse, true)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-2 pt-1">
           <button onClick={resetEdit} className="flex-1 py-2.5 rounded-xl text-sm text-warmDark/75 hover:bg-white/30 transition-all">
             Cancel
           </button>
@@ -947,7 +1034,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 20 }}
               transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-              className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-warmMid/10 p-5 max-h-[85vh] overflow-y-auto"
+              className="w-full max-w-2xl bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-warmMid/10 p-5 max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -1015,6 +1102,21 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Image Cropper ── */}
+      {cropSrc && (
+        <ImageCropper
+          imageSrc={cropSrc}
+          onCropDone={(croppedUrl) => {
+            if (cropIndex !== null) {
+              setEditPhotos((prev) => prev.map((url, i) => i === cropIndex ? croppedUrl : url))
+            }
+            setCropSrc(null)
+            setCropIndex(null)
+          }}
+          onCancel={() => { setCropSrc(null); setCropIndex(null) }}
+        />
+      )}
     </div>
   )
 }
