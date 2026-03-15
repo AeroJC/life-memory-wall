@@ -196,7 +196,7 @@ export default function Timeline() {
 
   const myMember = space.membersList.find((m) => m.userId === currentUser?.id)
   const myRole = myMember?.role
-  const myPermission = myMember?.role === 'owner' ? 'edit' : (myMember?.permission ?? 'edit')
+  const myPermission = (myMember?.role === 'owner' || myMember?.role === 'admin') ? 'edit' : (myMember?.permission ?? 'view')
   const canEdit = myPermission === 'edit'
   const allActiveMembers = space.membersList.filter((m) => m.status === 'active')
 

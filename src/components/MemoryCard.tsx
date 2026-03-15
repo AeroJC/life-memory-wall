@@ -82,7 +82,7 @@ export default function MemoryCard({ memory, index, side, onDelete, onReact, onE
               <span className="text-6xl opacity-50">{getEmojiForTag(memory.tags?.[0])}</span>
             </div>
           )}
-          <div className="absolute top-3 right-3 glass rounded-full px-3 py-1 group-hover:top-12 transition-all duration-300">
+          <div className={`absolute top-3 right-3 glass rounded-full px-3 py-1 transition-all duration-300 ${canEdit ? 'group-hover:top-12' : ''}`}>
             <span className="font-handwriting text-base text-warmDark">{formatDate(memory.date)}</span>
           </div>
         </div>
