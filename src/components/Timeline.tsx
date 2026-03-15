@@ -259,16 +259,23 @@ export default function Timeline() {
           {/* Permission toggle — only owner sees it, only for non-owner members */}
           {showActions && myRole === 'owner' && m.userId !== currentUser?.id && m.role !== 'owner' && (
             <button
-              onClick={() => handleTogglePermission(m.userId, m.permission ?? 'edit')}
+              onClick={() => handleTogglePermission(m.userId, m.permission ?? 'view')}
               disabled={updatingPermissionId === m.userId}
-              className={`flex-shrink-0 text-[11px] font-sans px-2 py-0.5 rounded-full border transition-all ${
-                (m.permission ?? 'edit') === 'edit'
-                  ? 'bg-teal/10 border-teal/30 text-teal'
-                  : 'bg-warmMid/10 border-warmMid/30 text-warmDark/50'
-              } disabled:opacity-40`}
-              title={`Click to switch to ${(m.permission ?? 'edit') === 'edit' ? 'view' : 'edit'}`}
+              title={`Switch to ${(m.permission ?? 'view') === 'edit' ? 'view' : 'edit'}`}
+              className="flex items-center gap-1.5 flex-shrink-0 disabled:opacity-40"
             >
-              {updatingPermissionId === m.userId ? '…' : (m.permission ?? 'edit') === 'edit' ? 'edit' : 'view'}
+              <span className={`text-[10px] font-sans transition-colors ${(m.permission ?? 'view') === 'edit' ? 'text-teal' : 'text-warmDark/40'}`}>
+                {(m.permission ?? 'view') === 'edit' ? 'edit' : 'view'}
+              </span>
+              <div className={`relative w-8 h-4 rounded-full transition-colors duration-200 ${(m.permission ?? 'view') === 'edit' ? 'bg-teal/70' : 'bg-warmMid/30'}`}>
+                {updatingPermissionId === m.userId ? (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Loader2 className="w-2.5 h-2.5 text-white animate-spin" />
+                  </div>
+                ) : (
+                  <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200 ${(m.permission ?? 'view') === 'edit' ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                )}
+              </div>
             </button>
           )}
           {showActions && myRole === 'owner' && m.userId !== currentUser?.id && m.role !== 'owner' && (

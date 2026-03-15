@@ -825,28 +825,34 @@ export default function SpaceSelector() {
                             <SpaceIconRenderer iconId={makeIconId(newIcon, newIconVariation)} size="full" />
                           )}
                         </div>
-                        {/* Upload overlay */}
-                        <label className="absolute inset-0 rounded-full flex items-center justify-center bg-warmDark/30 opacity-0 group-hover/cover:opacity-100 transition-opacity cursor-pointer">
+                        {/* Upload overlay (hover only, pointer-events disabled so badge stays clickable) */}
+                        <label className="absolute inset-0 rounded-full flex items-center justify-center bg-warmDark/30 opacity-0 group-hover/cover:opacity-100 pointer-events-none transition-opacity">
                           {coverImageUploading ? (
                             <Loader2 className="w-6 h-6 text-white animate-spin" />
                           ) : (
                             <ImagePlus className="w-6 h-6 text-white" />
                           )}
-                          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-                            setCoverImageUploading(true)
-                            try {
-                              const url = await uploadImage(file)
-                              setNewCoverImage(url)
-                            } catch {
-                              // silently fail
-                            } finally {
-                              setCoverImageUploading(false)
-                              e.target.value = ''
-                            }
-                          }} />
                         </label>
+                        {/* Always-visible upload badge (for touch devices) */}
+                        {!newCoverImage && (
+                          <label className="absolute bottom-1 right-1 z-10 w-8 h-8 rounded-full bg-warmDark/70 text-white flex items-center justify-center cursor-pointer hover:bg-warmDark transition-colors shadow-md">
+                            {coverImageUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                            <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                              const file = e.target.files?.[0]
+                              if (!file) return
+                              setCoverImageUploading(true)
+                              try {
+                                const url = await uploadImage(file)
+                                setNewCoverImage(url)
+                              } catch {
+                                // silently fail
+                              } finally {
+                                setCoverImageUploading(false)
+                                e.target.value = ''
+                              }
+                            }} />
+                          </label>
+                        )}
                         {newCoverImage && (
                           <button
                             type="button"
@@ -857,7 +863,7 @@ export default function SpaceSelector() {
                           </button>
                         )}
                       </div>
-                      <p className="text-xs font-sans text-warmDark/50">Hover to upload a photo</p>
+                      <p className="text-xs font-sans text-warmDark/50">Tap the camera to upload a photo</p>
                       <div className="text-center">
                         <p className="font-handwriting text-warmDark/70 text-lg italic">{newDescription}</p>
                         <button type="button" onClick={() => setNewDescription(randomTaglineForIcon(newIcon))}
@@ -993,27 +999,33 @@ export default function SpaceSelector() {
                             <SpaceIconRenderer iconId={makeIconId(editIcon, editIconVariation)} size="full" />
                           )}
                         </div>
-                        <label className="absolute inset-0 rounded-full flex items-center justify-center bg-warmDark/30 opacity-0 group-hover/cover:opacity-100 transition-opacity cursor-pointer">
+                        <label className="absolute inset-0 rounded-full flex items-center justify-center bg-warmDark/30 opacity-0 group-hover/cover:opacity-100 pointer-events-none transition-opacity">
                           {editCoverImageUploading ? (
                             <Loader2 className="w-6 h-6 text-white animate-spin" />
                           ) : (
                             <ImagePlus className="w-6 h-6 text-white" />
                           )}
-                          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-                            setEditCoverImageUploading(true)
-                            try {
-                              const url = await uploadImage(file)
-                              setEditCoverImage(url)
-                            } catch {
-                              // silently fail
-                            } finally {
-                              setEditCoverImageUploading(false)
-                              e.target.value = ''
-                            }
-                          }} />
                         </label>
+                        {/* Always-visible upload badge (for touch devices) */}
+                        {!editCoverImage && (
+                          <label className="absolute bottom-1 right-1 z-10 w-8 h-8 rounded-full bg-warmDark/70 text-white flex items-center justify-center cursor-pointer hover:bg-warmDark transition-colors shadow-md">
+                            {editCoverImageUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                            <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                              const file = e.target.files?.[0]
+                              if (!file) return
+                              setEditCoverImageUploading(true)
+                              try {
+                                const url = await uploadImage(file)
+                                setEditCoverImage(url)
+                              } catch {
+                                // silently fail
+                              } finally {
+                                setEditCoverImageUploading(false)
+                                e.target.value = ''
+                              }
+                            }} />
+                          </label>
+                        )}
                         {editCoverImage && (
                           <button
                             type="button"
@@ -1024,7 +1036,7 @@ export default function SpaceSelector() {
                           </button>
                         )}
                       </div>
-                      <p className="text-xs font-sans text-warmDark/50">Hover to change photo</p>
+                      <p className="text-xs font-sans text-warmDark/50">Tap the camera to change photo</p>
                       <div className="text-center">
                         <p className="font-handwriting text-warmDark/70 text-lg italic">{editDescription || 'No tagline set'}</p>
                         <button type="button" onClick={() => setEditDescription(randomTaglineForIcon(editIcon))}
