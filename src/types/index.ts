@@ -71,6 +71,8 @@ export interface User {
   avatar: string
   email: string
   phone?: string
+  hasVaultCode?: boolean
+  hiddenSpaceIds?: string[]
 }
 
 export interface PendingInvite {

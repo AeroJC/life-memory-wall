@@ -220,4 +220,17 @@ export const api = {
 
   regenerateInviteCode: (spaceId: string) =>
     request<{ inviteCode: string }>(`/spaces/${spaceId}/regenerate-code`, { method: 'POST' }),
+
+  // Vault
+  setVaultCode: (code: string) =>
+    request<{ success: boolean }>('/auth/vault-code', { method: 'POST', body: JSON.stringify({ code }) }),
+
+  changeVaultCode: (currentCode: string, newCode: string) =>
+    request<{ success: boolean }>('/auth/vault-code', { method: 'PATCH', body: JSON.stringify({ currentCode, newCode }) }),
+
+  verifyVaultCode: (code: string) =>
+    request<{ success: boolean }>('/auth/vault-code/verify', { method: 'POST', body: JSON.stringify({ code }) }),
+
+  updateHiddenSpaces: (spaceIds: string[]) =>
+    request<{ success: boolean; hiddenSpaceIds: string[] }>('/auth/hidden-spaces', { method: 'PATCH', body: JSON.stringify({ spaceIds }) }),
 }

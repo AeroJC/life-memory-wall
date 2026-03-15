@@ -42,7 +42,7 @@ const spacePageSubheadings = [
 ]
 
 export default function SpaceSelector() {
-  const { getVisibleSpaces, setActiveSpace, addSpace, updateSpace, deleteSpace, leaveSpace, removeMember, logout, currentUser, spaces, loading, pendingInvites, acceptSpaceInvite, rejectSpaceInvite } = useStore()
+  const { getVisibleSpaces, setActiveSpace, addSpace, updateSpace, deleteSpace, leaveSpace, removeMember, logout, currentUser, spaces, loading, pendingInvites, acceptSpaceInvite, rejectSpaceInvite, hiddenSpaceIds: storeHiddenSpaceIds, hasVaultCode, setVaultCode: storeSetVaultCode, changeVaultCode: storeChangeVaultCode, verifyVaultCode: storeVerifyVaultCode, updateHiddenSpaces: storeUpdateHiddenSpaces } = useStore()
   const allSpaces = getVisibleSpaces()
   const [pageHeading] = useState(() => spacePageHeadings[Math.floor(Math.random() * spacePageHeadings.length)])
   const [pageSubheading] = useState(() => spacePageSubheadings[Math.floor(Math.random() * spacePageSubheadings.length)])
@@ -133,15 +133,9 @@ export default function SpaceSelector() {
   const [selectedCategory, setSelectedCategory] = useState<string>(iconCategories[0])
 
   // Hidden Spaces / Secret Vault
+  const hiddenSpaceIds = new Set(storeHiddenSpaceIds)
   const [hideSelectMode, setHideSelectMode] = useState(false)
   const [selectedToHide, setSelectedToHide] = useState<Set<string>>(new Set())
-  const [hiddenSpaceIds, setHiddenSpaceIds] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem('hiddenSpaceIds')
-      return stored ? new Set(JSON.parse(stored)) : new Set()
-    } catch { return new Set() }
-  })
-  const [secretCode, setSecretCode] = useState<string>(() => localStorage.getItem('spacesSecretCode') || '')
   const [vaultOpen, setVaultOpen] = useState(false)
   const [vaultPinInput, setVaultPinInput] = useState('')
   const [vaultPinError, setVaultPinError] = useState('')
@@ -164,14 +158,12 @@ export default function SpaceSelector() {
     : allSpaces.filter((s) => !hiddenSpaceIds.has(s.id))
 
   const handleDoneHiding = () => {
-    if (selectedToHide.size > 0 && !secretCode) {
+    if (selectedToHide.size > 0 && !hasVaultCode) {
       setPendingHideAfterCode(true)
       setModal('set-secret-code')
       return
     }
-    const newHidden = new Set(selectedToHide)
-    localStorage.setItem('hiddenSpaceIds', JSON.stringify(Array.from(newHidden)))
-    setHiddenSpaceIds(newHidden)
+    storeUpdateHiddenSpaces(Array.from(selectedToHide))
     setSelectedToHide(new Set())
     setHideSelectMode(false)
     setVaultOpen(false)
@@ -1400,14 +1392,14 @@ export default function SpaceSelector() {
                   )}
 
                   {/* Secret Vault entry — only shown when a code is set or hidden spaces exist */}
-                  {(secretCode || hiddenSpaceIds.size > 0) && profileTab !== 'code' && (
+                  {(hasVaultCode || hiddenSpaceIds.size > 0) && profileTab !== 'code' && (
                     <div className="mt-5 pt-4 border-t border-warmMid/10">
                       <button
                         onClick={() => {
                           if (vaultOpen) {
                             setVaultOpen(false)
                             closeModal()
-                          } else if (secretCode) {
+                          } else if (hasVaultCode) {
                             setVaultPinInput('')
                             setVaultPinError('')
                             setModal('unlock-vault')
@@ -1442,9 +1434,9 @@ export default function SpaceSelector() {
                   {profileTab === 'code' && (
                     <div className="space-y-4">
                       <p className="font-handwriting text-warmDark/60 text-center text-lg">
-                        {secretCode ? 'Change the code that protects your hidden spaces' : 'Set a 4-digit code to lock your secret vault'}
+                        {hasVaultCode ? 'Change the code that protects your hidden spaces' : 'Set a 4-digit code to lock your secret vault'}
                       </p>
-                      {secretCode && (
+                      {hasVaultCode && (
                         <div>
                           <label className="font-handwriting text-warmDark/70 text-base block mb-2 text-center">Current code</label>
                           <div className="flex gap-3 justify-center">
@@ -1465,11 +1457,11 @@ export default function SpaceSelector() {
                         </div>
                       )}
                       <div>
-                        <label className="font-handwriting text-warmDark/70 text-base block mb-2 text-center">{secretCode ? 'New code' : 'Your code'}</label>
+                        <label className="font-handwriting text-warmDark/70 text-base block mb-2 text-center">{hasVaultCode ? 'New code' : 'Your code'}</label>
                         <div className="flex gap-3 justify-center">
                           {[0, 1, 2, 3].map((idx) => (
                             <input key={idx} id={`pc-new-${idx}`} type="password" inputMode="numeric" maxLength={1}
-                              value={newSecretCode[idx] || ''} autoFocus={!secretCode && idx === 0}
+                              value={newSecretCode[idx] || ''} autoFocus={!hasVaultCode && idx === 0}
                               onChange={(e) => {
                                 const val = e.target.value.replace(/\D/, ''); if (!val) return
                                 const arr = (newSecretCode + '    ').split('').slice(0, 4); arr[idx] = val
@@ -1516,20 +1508,31 @@ export default function SpaceSelector() {
                       <div className="flex gap-3 pt-1">
                         <button onClick={closeModal} className="flex-1 py-3 rounded-xl text-warmDark/70 hover:bg-white/30 transition-all font-sans text-sm">Cancel</button>
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             const cleanNew = newSecretCode.replace(/\s/g, '')
                             const cleanConfirm = confirmSecretCode.replace(/\s/g, '')
-                            if (secretCode) {
-                              const cleanCurrent = currentSecretCodeInput.replace(/\s/g, '')
-                              if (cleanCurrent.length !== 4) { setSecretCodeError('Enter your current 4-digit code'); return }
-                              if (cleanCurrent !== secretCode) { setSecretCodeError('Current code is incorrect'); return }
-                            }
                             if (cleanNew.length !== 4) { setSecretCodeError('Must be exactly 4 digits'); return }
                             if (cleanNew !== cleanConfirm) { setSecretCodeError('Codes do not match'); return }
-                            localStorage.setItem('spacesSecretCode', cleanNew)
-                            setSecretCode(cleanNew)
-                            setSecretCodeSuccess(true)
-                            setTimeout(() => closeModal(), 1200)
+                            try {
+                              if (hasVaultCode) {
+                                const cleanCurrent = currentSecretCodeInput.replace(/\s/g, '')
+                                if (cleanCurrent.length !== 4) { setSecretCodeError('Enter your current 4-digit code'); return }
+                                await storeChangeVaultCode(cleanCurrent, cleanNew)
+                              } else {
+                                await storeSetVaultCode(cleanNew)
+                              }
+                              // If pending hide, complete it now
+                              if (pendingHideAfterCode) {
+                                await storeUpdateHiddenSpaces(Array.from(selectedToHide))
+                                setSelectedToHide(new Set())
+                                setHideSelectMode(false)
+                                setPendingHideAfterCode(false)
+                              }
+                              setSecretCodeSuccess(true)
+                              setTimeout(() => closeModal(), 1200)
+                            } catch (err: any) {
+                              setSecretCodeError(err.message || 'Failed to save code')
+                            }
                           }}
                           disabled={secretCodeSuccess}
                           className="flex-1 py-3 rounded-xl bg-gradient-to-r from-gold/80 to-coral/80 text-white font-medium disabled:opacity-60 flex items-center justify-center gap-2 font-sans text-sm"
@@ -1987,14 +1990,16 @@ export default function SpaceSelector() {
                           setVaultPinError('')
                           if (idx < 3) document.getElementById(`vault-pin-${idx + 1}`)?.focus()
                           if (next.length === 4) {
-                            if (next === secretCode) {
-                              setVaultOpen(true)
-                              closeModal()
-                            } else {
-                              setVaultPinError('Incorrect code. Try again.')
-                              setVaultPinInput('')
-                              document.getElementById('vault-pin-0')?.focus()
-                            }
+                            storeVerifyVaultCode(next).then((ok) => {
+                              if (ok) {
+                                setVaultOpen(true)
+                                closeModal()
+                              } else {
+                                setVaultPinError('Incorrect code. Try again.')
+                                setVaultPinInput('')
+                                document.getElementById('vault-pin-0')?.focus()
+                              }
+                            })
                           }
                         }}
                         onKeyDown={(e) => {
@@ -2034,13 +2039,13 @@ export default function SpaceSelector() {
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gold/20 to-amber-100 flex items-center justify-center mb-3">
                       <Lock className="w-6 h-6 text-gold/80" />
                     </div>
-                    <h2 className="font-serif text-2xl text-warmDark">{secretCode ? 'Change secrecy code' : 'Set secrecy code'}</h2>
+                    <h2 className="font-serif text-2xl text-warmDark">{hasVaultCode ? 'Change secrecy code' : 'Set secrecy code'}</h2>
                     <p className="font-handwriting text-lg text-warmDark/60 mt-1 text-center">
-                      {secretCode ? 'Choose a new 4-digit code for your vault' : 'Create a 4-digit code to protect your hidden spaces'}
+                      {hasVaultCode ? 'Choose a new 4-digit code for your vault' : 'Create a 4-digit code to protect your hidden spaces'}
                     </p>
                   </div>
                   <div className="space-y-4">
-                    {secretCode && (
+                    {hasVaultCode && (
                       <div>
                         <label className="font-handwriting text-warmDark/70 text-base block mb-2">Current code</label>
                         <div className="flex gap-3 justify-center">
@@ -2077,7 +2082,7 @@ export default function SpaceSelector() {
                       </div>
                     )}
                     <div>
-                      <label className="font-handwriting text-warmDark/70 text-base block mb-2">{secretCode ? 'New code' : 'Your code'}</label>
+                      <label className="font-handwriting text-warmDark/70 text-base block mb-2">{hasVaultCode ? 'New code' : 'Your code'}</label>
                       <div className="flex gap-3 justify-center">
                         {[0, 1, 2, 3].map((idx) => (
                           <input
@@ -2087,7 +2092,7 @@ export default function SpaceSelector() {
                             inputMode="numeric"
                             maxLength={1}
                             value={newSecretCode[idx] || ''}
-                            autoFocus={!secretCode && idx === 0}
+                            autoFocus={!hasVaultCode && idx === 0}
                             onChange={(e) => {
                               const val = e.target.value.replace(/\D/, '')
                               if (!val) return
@@ -2161,29 +2166,35 @@ export default function SpaceSelector() {
                     <div className="flex gap-3 pt-2">
                       <button onClick={() => { closeModal(); if (pendingHideAfterCode) { setPendingHideAfterCode(false); setHideSelectMode(false); setSelectedToHide(new Set()) } }} className="flex-1 py-3 rounded-xl text-warmDark/70 hover:bg-white/30 transition-all">Cancel</button>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           const cleanNew = newSecretCode.replace(/\s/g, '')
                           const cleanConfirm = confirmSecretCode.replace(/\s/g, '')
-                          if (secretCode) {
+                          if (hasVaultCode) {
                             const cleanCurrent = currentSecretCodeInput.replace(/\s/g, '')
                             if (cleanCurrent.length !== 4) { setSecretCodeError('Enter your current 4-digit code'); return }
-                            if (cleanCurrent !== secretCode) { setSecretCodeError('Current code is incorrect'); return }
+                            const valid = await storeVerifyVaultCode(cleanCurrent)
+                            if (!valid) { setSecretCodeError('Current code is incorrect'); return }
                           }
                           if (cleanNew.length !== 4) { setSecretCodeError('New code must be exactly 4 digits'); return }
                           if (cleanNew !== cleanConfirm) { setSecretCodeError('Codes do not match'); return }
-                          localStorage.setItem('spacesSecretCode', cleanNew)
-                          setSecretCode(cleanNew)
-                          setSecretCodeSuccess(true)
-                          // If pending hide, complete it now
-                          if (pendingHideAfterCode) {
-                            const newHidden = new Set(selectedToHide)
-                            localStorage.setItem('hiddenSpaceIds', JSON.stringify(Array.from(newHidden)))
-                            setHiddenSpaceIds(newHidden)
-                            setSelectedToHide(new Set())
-                            setHideSelectMode(false)
-                            setPendingHideAfterCode(false)
+                          try {
+                            if (hasVaultCode) {
+                              await storeChangeVaultCode(currentSecretCodeInput.replace(/\s/g, ''), cleanNew)
+                            } else {
+                              await storeSetVaultCode(cleanNew)
+                            }
+                            setSecretCodeSuccess(true)
+                            // If pending hide, complete it now
+                            if (pendingHideAfterCode) {
+                              await storeUpdateHiddenSpaces(Array.from(selectedToHide))
+                              setSelectedToHide(new Set())
+                              setHideSelectMode(false)
+                              setPendingHideAfterCode(false)
+                            }
+                            setTimeout(() => closeModal(), 1200)
+                          } catch {
+                            setSecretCodeError('Failed to save code. Please try again.')
                           }
-                          setTimeout(() => closeModal(), 1200)
                         }}
                         disabled={secretCodeSuccess}
                         className="flex-1 py-3 rounded-xl bg-gradient-to-r from-gold/80 to-coral/80 text-white font-medium disabled:opacity-60 flex items-center justify-center gap-2"

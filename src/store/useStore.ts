@@ -16,6 +16,14 @@ interface AppState {
   loadingMore: boolean
   fetchMoreMemories: () => Promise<void>
 
+  // Vault
+  hiddenSpaceIds: string[]
+  hasVaultCode: boolean
+  setVaultCode: (code: string) => Promise<void>
+  changeVaultCode: (currentCode: string, newCode: string) => Promise<void>
+  verifyVaultCode: (code: string) => Promise<boolean>
+  updateHiddenSpaces: (spaceIds: string[]) => Promise<void>
+
   init: () => Promise<void>
   login: (credentials?: { email?: string; phone?: string; name?: string; password?: string }) => Promise<void>
   loginWithCode: (email: string, code: string) => Promise<void>
@@ -60,6 +68,8 @@ export const useStore = create<AppState>((set, get) => ({
   memoryCursor: null,
   hasMoreMemories: false,
   loadingMore: false,
+  hiddenSpaceIds: [],
+  hasVaultCode: false,
 
   init: async () => {
     const token = localStorage.getItem('token')
@@ -69,7 +79,12 @@ export const useStore = create<AppState>((set, get) => ({
     }
     try {
       const result = await api.me()
-      set({ isLoggedIn: true, currentUser: result.user })
+      set({
+        isLoggedIn: true,
+        currentUser: result.user,
+        hiddenSpaceIds: result.user.hiddenSpaceIds || [],
+        hasVaultCode: !!result.user.hasVaultCode,
+      })
       const savedSpaceId = localStorage.getItem('activeSpaceId')
       await Promise.all([get().fetchSpaces(), get().fetchMyInvites()])
       if (savedSpaceId) {
@@ -92,7 +107,12 @@ export const useStore = create<AppState>((set, get) => ({
     })
     setToken(result.token)
     localStorage.removeItem('activeSpaceId')
-    set({ isLoggedIn: true, currentUser: result.user })
+    set({
+      isLoggedIn: true,
+      currentUser: result.user,
+      hiddenSpaceIds: result.user.hiddenSpaceIds || [],
+      hasVaultCode: !!result.user.hasVaultCode,
+    })
     await Promise.all([get().fetchSpaces(), get().fetchMyInvites()])
   },
 
@@ -100,7 +120,12 @@ export const useStore = create<AppState>((set, get) => ({
     const result = await api.loginWithCode(email, code)
     setToken(result.token)
     localStorage.removeItem('activeSpaceId')
-    set({ isLoggedIn: true, currentUser: result.user })
+    set({
+      isLoggedIn: true,
+      currentUser: result.user,
+      hiddenSpaceIds: result.user.hiddenSpaceIds || [],
+      hasVaultCode: !!result.user.hasVaultCode,
+    })
     await Promise.all([get().fetchSpaces(), get().fetchMyInvites()])
   },
 
@@ -109,7 +134,7 @@ export const useStore = create<AppState>((set, get) => ({
   logout: () => {
     clearToken()
     localStorage.removeItem('activeSpaceId')
-    set({ isLoggedIn: false, currentUser: null, spaces: [], activeSpaceId: null, activeSpaceData: null, pendingInvites: [], memoryCursor: null, hasMoreMemories: false, loadingMore: false })
+    set({ isLoggedIn: false, currentUser: null, spaces: [], activeSpaceId: null, activeSpaceData: null, pendingInvites: [], memoryCursor: null, hasMoreMemories: false, loadingMore: false, hiddenSpaceIds: [], hasVaultCode: false })
   },
 
   fetchMyInvites: async () => {
@@ -399,6 +424,29 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (err) {
       console.error('Failed to update role:', err)
     }
+  },
+
+  setVaultCode: async (code) => {
+    await api.setVaultCode(code)
+    set({ hasVaultCode: true })
+  },
+
+  changeVaultCode: async (currentCode, newCode) => {
+    await api.changeVaultCode(currentCode, newCode)
+  },
+
+  verifyVaultCode: async (code) => {
+    try {
+      await api.verifyVaultCode(code)
+      return true
+    } catch {
+      return false
+    }
+  },
+
+  updateHiddenSpaces: async (spaceIds) => {
+    await api.updateHiddenSpaces(spaceIds)
+    set({ hiddenSpaceIds: spaceIds })
   },
 
   updateMemberPermission: async (spaceId, userId, permission) => {
