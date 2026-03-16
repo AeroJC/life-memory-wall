@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, KeyRound, LogOut, UserMinus, ArrowLeft, User, ImagePlus, Copy, Lock, Unlock } from 'lucide-react'
+import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, KeyRound, LogOut, UserMinus, ArrowLeft, User, ImagePlus, Copy, Lock, Unlock, UserPlus } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { api } from '../api'
@@ -44,6 +44,8 @@ const spacePageSubheadings = [
 export default function SpaceSelector() {
   const { getVisibleSpaces, setActiveSpace, addSpace, updateSpace, deleteSpace, leaveSpace, removeMember, logout, currentUser, spaces, loading, pendingInvites, acceptSpaceInvite, rejectSpaceInvite, hiddenSpaceIds: storeHiddenSpaceIds, hasVaultCode, setVaultCode: storeSetVaultCode, changeVaultCode: storeChangeVaultCode, verifyVaultCode: storeVerifyVaultCode, updateHiddenSpaces: storeUpdateHiddenSpaces } = useStore()
   const allSpaces = getVisibleSpaces()
+  const totalJoinRequests = spaces.reduce((sum, s) => s.createdBy === currentUser?.id ? sum + (s.joinRequests?.length || 0) : sum, 0)
+  const totalNotifications = pendingInvites.length + totalJoinRequests
   const [pageHeading] = useState(() => spacePageHeadings[Math.floor(Math.random() * spacePageHeadings.length)])
   const [pageSubheading] = useState(() => spacePageSubheadings[Math.floor(Math.random() * spacePageSubheadings.length)])
 
@@ -371,9 +373,9 @@ export default function SpaceSelector() {
                 <span className="font-serif text-lg text-white font-semibold drop-shadow-sm">
                   {currentUser?.name?.[0]?.toUpperCase() || 'U'}
                 </span>
-                {pendingInvites.length > 0 && (
+                {totalNotifications > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gradient-to-br from-coral to-red-400 rounded-full text-white text-[10px] font-bold flex items-center justify-center shadow-md ring-2 ring-white/80">
-                    {pendingInvites.length}
+                    {totalNotifications}
                   </span>
                 )}
               </button>
@@ -430,6 +432,28 @@ export default function SpaceSelector() {
                                   <span className="font-sans text-sm text-warmDark/75 group-hover:text-warmDark flex-1">Space invitations</span>
                                   <span className="w-5 h-5 rounded-full bg-gradient-to-br from-coral/80 to-red-400/80 text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
                                     {pendingInvites.length}
+                                  </span>
+                                </button>
+                              )}
+
+                              {totalJoinRequests > 0 && (
+                                <button
+                                  onClick={() => {
+                                    const spaceWithReq = spaces.find(s => s.createdBy === currentUser?.id && (s.joinRequests?.length || 0) > 0)
+                                    if (spaceWithReq) {
+                                      setViewingSpaceId(spaceWithReq.id)
+                                      setModal('members')
+                                    }
+                                    setShowProfileMenu(false)
+                                  }}
+                                  className="w-full text-left px-4 py-3 mx-1 my-0.5 rounded-xl hover:bg-gold/8 transition-all flex items-center gap-3 group"
+                                >
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-100 to-yellow-100 flex items-center justify-center flex-shrink-0">
+                                    <UserPlus className="w-4 h-4 text-amber-600/80" />
+                                  </div>
+                                  <span className="font-sans text-sm text-warmDark/75 group-hover:text-warmDark flex-1">Join requests</span>
+                                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
+                                    {totalJoinRequests}
                                   </span>
                                 </button>
                               )}

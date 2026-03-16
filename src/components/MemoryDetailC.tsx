@@ -1,10 +1,13 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { MapPin, Plus, Image, BookOpen, Camera, Images, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, Check, MoreVertical, Play, Pause, Crop } from 'lucide-react'
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Memory, SubStory } from '../types'
+
+import { Memory, SubStory, TextStyle, CanvasData } from '../types'
 import { uploadMultipleImages, thumbnailUrl, mediumUrl, fullUrl } from '../cloudinary'
 import RichTextEditor from './RichTextEditor'
 import ImageCropper from './ImageCropper'
+import TextStylePanel from './TextStylePanel'
+import MomentEditor, { CanvasRenderer } from './MomentEditor'
 
 interface Props {
   memory: Memory
@@ -13,6 +16,7 @@ interface Props {
   onUpdateSubstory: (memoryId: string, substory: SubStory) => void
   onDeleteSubstory: (memoryId: string, substoryId: string) => void
   canEdit?: boolean
+  onEditingChange?: (editing: boolean) => void
 }
 
 const formatDate = (dateStr: string) =>
@@ -50,16 +54,33 @@ const layoutOptions: { type: SubStory['type']; preview: React.ReactNode }[] = [
   { type: 'img-top', preview: <div className="flex flex-col gap-0.5 w-full px-0.5"><div className="h-3.5 bg-lavender/50 rounded w-full"/><div className="h-1 bg-warmDark/20 rounded-full"/><div className="h-1 bg-warmDark/12 rounded-full w-4/5"/></div> },
   { type: 'img-bottom', preview: <div className="flex flex-col gap-0.5 w-full px-0.5"><div className="h-1 bg-warmDark/20 rounded-full"/><div className="h-1 bg-warmDark/12 rounded-full w-4/5"/><div className="h-3.5 bg-teal/30 rounded w-full"/></div> },
   { type: 'photos', preview: <div className="grid grid-cols-2 gap-0.5 w-full px-0.5"><div className="h-2.5 bg-gold/25 rounded"/><div className="h-2.5 bg-coral/25 rounded"/><div className="h-2.5 bg-lavender/35 rounded"/><div className="h-2.5 bg-teal/25 rounded"/></div> },
+  { type: 'canvas', preview: <div className="relative w-full h-6 bg-warmMid/5 rounded border border-dashed border-warmMid/20"><div className="absolute top-0.5 left-0.5 w-3 h-2 bg-gold/25 rounded-sm"/><div className="absolute bottom-0.5 right-1 w-4 h-1 bg-warmDark/15 rounded-full"/><div className="absolute top-1 right-0.5 w-2.5 h-2.5 bg-coral/20 rounded-sm"/></div> },
 ]
 
-export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdateSubstory, onDeleteSubstory, canEdit = true }: Props) {
+/** Build inline CSS from a TextStyle object */
+function textStyleToCss(ts?: TextStyle): React.CSSProperties {
+  if (!ts) return {}
+  return {
+    fontFamily: ts.fontFamily ? `'${ts.fontFamily}', sans-serif` : undefined,
+    fontSize: ts.fontSize === 'small' ? '14px' : ts.fontSize === 'large' ? '20px' : ts.fontSize === 'heading' ? '26px' : undefined,
+    textAlign: ts.textAlign || undefined,
+    fontWeight: ts.bold ? 'bold' : undefined,
+    fontStyle: ts.italic ? 'italic' : undefined,
+    textDecoration: ts.underline ? 'underline' : undefined,
+  }
+}
+
+export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdateSubstory, onDeleteSubstory, canEdit = true, onEditingChange }: Props) {
   const [activeTab, setActiveTab] = useState<'timeline' | 'photos'>('timeline')
 
   /* ── Per-card editing state ── */
   const [expandedId, setExpandedId] = useState<string | null>(null)   // which substory is in edit mode
   const [showAddForm, setShowAddForm] = useState(false)               // "add moment" card expanded
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null)   // which substory shows the ... menu
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+
+  /* ── Canvas draft for 'canvas' type moments ── */
+  const [canvasDraft, setCanvasDraft] = useState<CanvasData | undefined>(undefined)
 
   /* ── Slideshow state ── */
   const [slideshowActive, setSlideshowActive] = useState(false)
@@ -71,6 +92,9 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
   const [editTitle, setEditTitle] = useState('')
   const [editContent, setEditContent] = useState('')
   const [editType, setEditType] = useState<SubStory['type']>('text')
+  const [editTextStyle, setEditTextStyle] = useState<TextStyle>({})
+  const [editTitleStyle, setEditTitleStyle] = useState<TextStyle>({})
+  const [styleTarget, setStyleTarget] = useState<'title' | 'content'>('content')
   const [editPhotos, setEditPhotos] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [cropSrc, setCropSrc] = useState<string | null>(null)       // image URL being cropped
@@ -110,6 +134,8 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
     setEditType('text'); setExpandedId(null); setShowAddForm(false)
     setCropSrc(null); setCropIndex(null)
     setMenuOpenId(null); setDeleteConfirmId(null)
+    setCanvasDraft(undefined); setEditTextStyle({}); setEditTitleStyle({}); setStyleTarget('content')
+    onEditingChange?.(false)
   }
 
   const startEdit = (sub: SubStory) => {
@@ -118,27 +144,55 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
     setEditContent(sub.content || sub.caption || '')
     setEditType(sub.type)
     setEditPhotos(sub.photos || [])
+    setEditTextStyle(sub.textStyle || {})
+    setEditTitleStyle(sub.titleStyle || {})
+    setStyleTarget('content')
+    if (sub.type === 'canvas') setCanvasDraft(sub.canvasData)
     setMenuOpenId(null)
+    onEditingChange?.(true)
   }
 
   const startAdd = () => {
     setShowAddForm(true)
     setExpandedId(null)
     setEditTitle(''); setEditContent(''); setEditPhotos([])
-    setEditType('text')
+    setEditType('text'); setEditTextStyle({}); setEditTitleStyle({}); setStyleTarget('content')
   }
 
   /* ── Save ── */
   const handleSave = () => {
+    // Canvas type moment
+    if (editType === 'canvas') {
+      if (!canvasDraft || canvasDraft.blocks.length === 0) return
+      const existingSub = substories.find((s) => s.id === expandedId)
+      const substory: SubStory = {
+        id: expandedId || `sub-${Date.now()}`,
+        date: existingSub?.date || new Date().toISOString().split('T')[0],
+        type: 'canvas',
+        title: editTitle.trim() || undefined,
+        canvasData: canvasDraft,
+      }
+      if (expandedId) {
+        onUpdateSubstory(memory.id, substory)
+      } else {
+        onAddSubstory(memory.id, substory)
+      }
+      resetEdit()
+      return
+    }
+
     if (!editTitle.trim() && !stripHtml(editContent)) return
+    const existingSub = substories.find((s) => s.id === expandedId)
     const substory: SubStory = {
       id: expandedId || `sub-${Date.now()}`,
-      date: substories.find((s) => s.id === expandedId)?.date || new Date().toISOString().split('T')[0],
+      date: existingSub?.date || new Date().toISOString().split('T')[0],
       type: editType,
       title: editTitle.trim() || undefined,
       content: editType === 'text' ? editContent : undefined,
       caption: editType !== 'text' ? editContent : undefined,
       photos: editType !== 'text' ? editPhotos : undefined,
+      textStyle: Object.keys(editTextStyle).length > 0 ? editTextStyle : undefined,
+      titleStyle: Object.keys(editTitleStyle).length > 0 ? editTitleStyle : undefined,
     }
     if (expandedId) {
       onUpdateSubstory(memory.id, substory)
@@ -155,15 +209,17 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
   const allPhotos = [
     ...coverGroup,
     ...substories
-      .filter((s) => s.type !== 'text')
+      .filter((s) => s.type !== 'text' && s.type !== 'canvas' && s.photos && s.photos.length > 0)
       .map((s) => ({ title: s.title || '', caption: s.caption || '', date: s.date, photos: s.photos || [] })),
   ]
+  const canvasItems = substories
+    .filter((s) => s.type === 'canvas' && s.canvasData)
+    .map((s) => ({ title: s.title || '', canvasData: s.canvasData!, key: `canvas-${s.id}` }))
   const gridItems = allPhotos.flatMap((photo, i) =>
-    photo.photos.length > 0
-      ? photo.photos.map((url, j) => ({ url, title: photo.title, caption: photo.caption, key: `${i}-${j}` }))
-      : [{ url: null as string | null, title: photo.title, caption: photo.caption, key: `${i}-0` }]
+    photo.photos.map((url, j) => ({ url, title: photo.title, caption: photo.caption, key: `${i}-${j}` }))
   )
-  const lightboxPhotos = gridItems.filter((item) => item.url !== null).map((item) => item.url as string)
+  const lightboxPhotos = gridItems.map((item) => item.url)
+  const hasMediaItems = gridItems.length > 0 || canvasItems.length > 0
 
   /* ── Lightbox ── */
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
@@ -209,6 +265,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
       text: memory.story || '',
       photo: coverPhoto,
       date: memory.date,
+      canvasData: undefined as CanvasData | undefined,
     }] : []),
     // Substory slides
     ...substories.map((sub) => ({
@@ -217,6 +274,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
       text: sub.type === 'text' ? (sub.content || '') : (sub.caption || ''),
       photo: sub.photos && sub.photos.length > 0 ? sub.photos[0] : null,
       date: sub.date,
+      canvasData: sub.type === 'canvas' ? sub.canvasData : undefined,
     })),
   ]
 
@@ -265,13 +323,13 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
 
   /** Compact substory card (read-only view) */
   const CompactCard = ({ sub, idx, gradIdx }: { sub: SubStory; idx: number; gradIdx: number }) => (
-    <div className="relative group">
-      {/* ... menu button */}
+    <div className="relative group/card">
+      {/* Three-dot menu */}
       {canEdit && (
         <div className="absolute -top-1 right-0 z-10">
           <button
             onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === sub.id ? null : sub.id) }}
-            className="w-7 h-7 rounded-lg bg-white/60 shadow-sm flex items-center justify-center text-warmDark/50 hover:text-warmDark/80 opacity-0 group-hover:opacity-100 transition-all"
+            className="w-7 h-7 rounded-lg bg-white/60 shadow-sm flex items-center justify-center text-warmDark/50 hover:text-warmDark/80 opacity-0 group-hover/card:opacity-100 transition-all"
           >
             <MoreVertical className="w-4 h-4" />
           </button>
@@ -336,16 +394,20 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
       {/* Card content based on type */}
       {sub.type === 'text' && (
         <div>
-          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-2">{sub.title}</h4>}
+          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-2" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           {sub.content && (
-            <div className="font-sans text-warmDark/90 leading-relaxed line-clamp-3" dangerouslySetInnerHTML={{ __html: sub.content }} />
+            <div
+              className="font-sans text-warmDark/90 leading-relaxed whitespace-pre-wrap"
+              style={textStyleToCss(sub.textStyle)}
+              dangerouslySetInnerHTML={{ __html: sub.content }}
+            />
           )}
         </div>
       )}
 
       {(sub.type === 'img-left' || sub.type === 'photo') && (
         <div>
-          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
+          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           <div className="flex gap-3 items-center">
             <div className="w-1/2 flex-shrink-0 rounded-xl overflow-hidden">
               {sub.photos && sub.photos.length > 0 ? (
@@ -357,7 +419,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
               )}
             </div>
             {sub.caption && (
-              <div className={`font-sans text-warmDark/90 flex-1 line-clamp-3 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sub.caption }} />
+              <div className={`font-sans text-warmDark/90 flex-1 whitespace-pre-wrap ${captionFontClass(sub.caption)}`} style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sub.caption }} />
             )}
           </div>
         </div>
@@ -365,10 +427,10 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
 
       {sub.type === 'img-right' && (
         <div>
-          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
+          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           <div className="flex gap-3 items-center">
             {sub.caption && (
-              <div className={`font-sans text-warmDark/90 flex-1 line-clamp-3 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sub.caption }} />
+              <div className={`font-sans text-warmDark/90 flex-1 whitespace-pre-wrap ${captionFontClass(sub.caption)}`} style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sub.caption }} />
             )}
             <div className="w-1/2 flex-shrink-0 rounded-xl overflow-hidden">
               {sub.photos && sub.photos.length > 0 ? (
@@ -385,7 +447,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
 
       {sub.type === 'img-top' && (
         <div>
-          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
+          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           {sub.photos && sub.photos.length > 0 ? (
             <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-contain bg-black/5 rounded-xl mb-3" />
           ) : (
@@ -393,14 +455,14 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
               <Image className="w-10 h-10 text-warmDark/75" />
             </div>
           )}
-          {sub.caption && <div className="font-sans text-sm text-warmDark/90 leading-relaxed line-clamp-3" dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+          {sub.caption && <div className="font-sans text-sm text-warmDark/90 leading-relaxed whitespace-pre-wrap" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sub.caption }} />}
         </div>
       )}
 
       {sub.type === 'img-bottom' && (
         <div>
-          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
-          {sub.caption && <div className="font-sans text-sm text-warmDark/75 leading-relaxed line-clamp-3 mb-3" dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
+          {sub.caption && <div className="font-sans text-sm text-warmDark/75 leading-relaxed whitespace-pre-wrap mb-3" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sub.caption }} />}
           {sub.photos && sub.photos.length > 0 ? (
             <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-contain bg-black/5 rounded-xl" />
           ) : (
@@ -413,7 +475,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
 
       {sub.type === 'photos' && (
         <div>
-          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
+          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           {sub.photos && sub.photos.length > 0 ? (
             <div className="grid grid-cols-2 gap-2">
               {sub.photos.map((url, n) => (
@@ -429,183 +491,207 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
               ))}
             </div>
           )}
-          {sub.caption && <div className="font-sans text-sm text-warmDark/90 italic mt-3 leading-relaxed line-clamp-3" dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+          {sub.caption && <div className="font-sans text-sm text-warmDark/90 italic mt-3 leading-relaxed whitespace-pre-wrap" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+        </div>
+      )}
+
+      {sub.type === 'canvas' && sub.canvasData && (
+        <div>
+          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
+          <CanvasRenderer data={sub.canvasData} />
         </div>
       )}
     </div>
   )
 
-  /** Photo zone — upload area or photo preview */
-  const renderPhotoZone = (inputRefToUse: React.RefObject<HTMLInputElement>, isGrid?: boolean) => {
+  /* ── Inline editable photo zone — fits inside card layout ── */
+  const renderInlinePhotoZone = (inputRef: React.RefObject<HTMLInputElement>, isGrid?: boolean, className?: string) => {
     const maxPhotos = editType === 'photos' ? 4 : 1
     const atLimit = editPhotos.length >= maxPhotos
     return (
-      <div className="h-full flex flex-col">
-        <input ref={inputRefToUse} type="file" accept="image/*" multiple={editType === 'photos'} className="hidden"
+      <div className={className}>
+        <input ref={inputRef} type="file" accept="image/*" multiple={editType === 'photos'} className="hidden"
           onChange={(e) => {
             const files = Array.from(e.target.files || []).slice(0, maxPhotos - editPhotos.length)
-            if (files.length > 0) handlePhotoFiles(files, setEditPhotos, inputRefToUse)
+            if (files.length > 0) handlePhotoFiles(files, setEditPhotos, inputRef)
           }} />
         {editPhotos.length > 0 ? (
-          <div className={`flex-1 ${isGrid ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
+          <div className={isGrid ? 'grid grid-cols-2 gap-2' : ''}>
             {editPhotos.map((url, pi) => (
-              <div key={pi} className="relative group/photo rounded-xl overflow-hidden flex-1 min-h-0">
-                <img src={url} alt="" className="w-full h-full object-contain bg-black/5 rounded-xl" />
+              <div key={pi} className="relative group/photo rounded-xl overflow-hidden">
+                <img src={url} alt="" className={`w-full ${isGrid ? 'aspect-square' : 'aspect-[4/3]'} object-contain bg-black/5 rounded-xl`} />
                 <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover/photo:opacity-100 transition-opacity">
                   <button type="button" onClick={() => { setCropSrc(url); setCropIndex(pi) }}
-                    className="w-6 h-6 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
-                    title="Crop">
+                    className="w-6 h-6 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors" title="Crop">
                     <Crop className="w-3 h-3 text-white" />
                   </button>
                   <button type="button" onClick={() => setEditPhotos((p) => p.filter((_, idx) => idx !== pi))}
-                    className="w-6 h-6 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
-                    title="Remove">
+                    className="w-6 h-6 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors" title="Remove">
                     <X className="w-3 h-3 text-white" />
                   </button>
                 </div>
               </div>
             ))}
             {!atLimit && !uploading && (
-              <button type="button" onClick={() => inputRefToUse.current?.click()}
-                className="border-2 border-dashed border-warmMid/20 rounded-xl flex items-center justify-center gap-1.5 hover:border-gold/30 transition-colors min-h-[60px]">
+              <button type="button" onClick={() => inputRef.current?.click()}
+                className={`border-2 border-dashed border-warmMid/20 rounded-xl flex items-center justify-center hover:border-gold/30 transition-colors ${isGrid ? 'aspect-square' : 'aspect-[4/3]'}`}>
                 <Plus className="w-4 h-4 text-warmDark/50" />
               </button>
             )}
           </div>
         ) : uploading ? (
-          <div className="flex-1 flex items-center justify-center gap-2 text-warmDark/75">
+          <div className="flex items-center justify-center gap-2 text-warmDark/75 aspect-[4/3]">
             <Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">Uploading...</span>
           </div>
         ) : (
-          <button type="button" onClick={() => inputRefToUse.current?.click()}
-            className="flex-1 border-2 border-dashed border-warmMid/20 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-gold/30 hover:bg-gold/5 transition-all min-h-[120px]">
-            <div className="w-10 h-10 rounded-full bg-warmMid/10 flex items-center justify-center">
-              <Upload className="w-5 h-5 text-warmDark/50" />
-            </div>
-            <span className="text-sm text-warmDark/50 font-sans">Add photo</span>
+          <button type="button" onClick={() => inputRef.current?.click()}
+            className={`w-full border-2 border-dashed border-warmMid/20 rounded-xl flex flex-col items-center justify-center gap-1.5 hover:border-gold/30 hover:bg-gold/5 transition-all ${isGrid ? 'aspect-square' : 'aspect-[4/3]'}`}>
+            <Upload className="w-5 h-5 text-warmDark/40" />
+            <span className="text-xs text-warmDark/40 font-sans">Add photo</span>
           </button>
         )}
       </div>
     )
   }
 
-  /** Text zone — title + rich text editor */
-  const renderTextZone = (isNew: boolean) => (
-    <div className="flex flex-col gap-2 h-full">
-      <input
-        type="text"
-        value={editTitle}
-        onChange={(e) => setEditTitle(e.target.value)}
-        placeholder={isNew ? 'Title...' : 'Title...'}
-        className="w-full font-serif text-lg text-warmDark bg-transparent border-b border-warmMid/10 pb-2 outline-none focus:border-gold/40 transition-colors placeholder:text-warmDark/30"
+  /* ── Inline editable title ── */
+  const editableTitle = (
+    <input
+      type="text"
+      value={editTitle}
+      onChange={(e) => setEditTitle(e.target.value)}
+      onFocus={() => setStyleTarget('title')}
+      placeholder="Title..."
+      className={`w-full font-serif text-lg font-bold text-warmDark bg-transparent outline-none placeholder:text-warmDark/25 border-b transition-colors mb-2 pb-1 ${styleTarget === 'title' ? 'border-gold/40' : 'border-transparent hover:border-warmMid/15'}`}
+      style={textStyleToCss(editTitleStyle)}
+    />
+  )
+
+  /* ── Inline editable content/caption ── */
+  const renderEditableContent = (placeholder: string) => (
+    <div
+      className={`rounded-lg transition-all ${styleTarget === 'content' ? 'ring-1 ring-gold/20' : ''}`}
+      onFocus={() => setStyleTarget('content')}
+    >
+      <RichTextEditor
+        value={editContent}
+        onChange={setEditContent}
+        placeholder={placeholder}
+        editorStyle={textStyleToCss(editTextStyle)}
       />
-      <div className="flex-1 min-h-0">
-        <RichTextEditor
-          value={editContent}
-          onChange={setEditContent}
-          placeholder={editType === 'text' ? 'Write your story...' : 'Caption...'}
-        />
-      </div>
     </div>
   )
 
-  /** The edit form — live template preview layout */
-  const renderEditForm = (isNew: boolean) => {
-    const inputRefToUse = isNew ? fileInputRef : editFileInputRef
+  /* ── Inline edit card — mirrors CompactCard layout but editable ── */
+  const renderInlineEditCard = (isNew: boolean) => {
+    const inputRef = isNew ? fileInputRef : editFileInputRef
     return (
-      <div className="space-y-3">
-        {/* Layout picker row */}
-        <div className="grid grid-cols-6 gap-1.5">
-          {layoutOptions.map(({ type, preview }) => (
-            <button
-              key={type}
-              onClick={() => setEditType(type)}
-              className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${editType === type ? 'border-gold/50 bg-gold/10 ring-1 ring-gold/25' : 'border-warmMid/10 hover:border-warmMid/20 hover:bg-white/20'}`}
-            >
-              <div className="w-full h-8 flex items-center justify-center">{preview}</div>
-              <span className="text-[10px] text-warmDark/40 font-sans leading-tight">
-                {type === 'text' ? 'Text' : type === 'img-left' ? 'Left' : type === 'img-right' ? 'Right' : type === 'img-top' ? 'Top' : type === 'img-bottom' ? 'Bottom' : 'Grid'}
-              </span>
-            </button>
-          ))}
-        </div>
+      <div>
+        {editType === 'text' && (
+          <div>
+            {editableTitle}
+            {renderEditableContent('Write your story...')}
+          </div>
+        )}
 
-        {/* Live template preview — layout matches selected type */}
-        <div className="rounded-2xl border border-warmMid/10 bg-white/40 overflow-hidden">
-          {editType === 'text' && (
-            <div className="p-4">
-              {renderTextZone(isNew)}
-            </div>
-          )}
-
-          {editType === 'img-left' && (
-            <div className="flex gap-0 min-h-[220px]">
-              <div className="w-1/2 p-3 border-r border-warmMid/10">
-                {renderPhotoZone(inputRefToUse)}
-              </div>
-              <div className="w-1/2 p-3">
-                {renderTextZone(isNew)}
+        {(editType === 'img-left' || editType === 'photo') && (
+          <div>
+            {editableTitle}
+            <div className="flex gap-3 items-start">
+              {renderInlinePhotoZone(inputRef, false, 'w-1/2 flex-shrink-0')}
+              <div className="flex-1">
+                {renderEditableContent('Caption...')}
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {editType === 'img-right' && (
-            <div className="flex gap-0 min-h-[220px]">
-              <div className="w-1/2 p-3 border-r border-warmMid/10">
-                {renderTextZone(isNew)}
+        {editType === 'img-right' && (
+          <div>
+            {editableTitle}
+            <div className="flex gap-3 items-start">
+              <div className="flex-1">
+                {renderEditableContent('Caption...')}
               </div>
-              <div className="w-1/2 p-3">
-                {renderPhotoZone(inputRefToUse)}
-              </div>
+              {renderInlinePhotoZone(inputRef, false, 'w-1/2 flex-shrink-0')}
             </div>
-          )}
+          </div>
+        )}
 
-          {editType === 'img-top' && (
-            <div className="flex flex-col">
-              <div className="p-3 border-b border-warmMid/10 min-h-[160px]">
-                {renderPhotoZone(inputRefToUse)}
-              </div>
-              <div className="p-3">
-                {renderTextZone(isNew)}
-              </div>
-            </div>
-          )}
+        {editType === 'img-top' && (
+          <div>
+            {editableTitle}
+            {renderInlinePhotoZone(inputRef, false, 'mb-3')}
+            {renderEditableContent('Caption...')}
+          </div>
+        )}
 
-          {editType === 'img-bottom' && (
-            <div className="flex flex-col">
-              <div className="p-3 border-b border-warmMid/10">
-                {renderTextZone(isNew)}
-              </div>
-              <div className="p-3 min-h-[160px]">
-                {renderPhotoZone(inputRefToUse)}
-              </div>
-            </div>
-          )}
+        {editType === 'img-bottom' && (
+          <div>
+            {editableTitle}
+            {renderEditableContent('Caption...')}
+            {renderInlinePhotoZone(inputRef, false, 'mt-3')}
+          </div>
+        )}
 
-          {editType === 'photos' && (
-            <div className="flex flex-col">
-              <div className="p-3 border-b border-warmMid/10">
-                {renderTextZone(isNew)}
-              </div>
-              <div className="p-3 min-h-[160px]">
-                {renderPhotoZone(inputRefToUse, true)}
-              </div>
-            </div>
-          )}
-        </div>
+        {editType === 'photos' && (
+          <div>
+            {editableTitle}
+            {renderInlinePhotoZone(inputRef, true, 'mb-3')}
+            {renderEditableContent('Caption...')}
+          </div>
+        )}
 
-        {/* Action buttons */}
-        <div className="flex gap-2 pt-1">
-          <button onClick={resetEdit} className="flex-1 py-2.5 rounded-xl text-sm text-warmDark/75 hover:bg-white/30 transition-all">
-            Cancel
-          </button>
-          <button onClick={handleSave} className="flex-1 py-2.5 rounded-xl text-sm bg-gradient-to-r from-gold/80 to-coral/70 text-white font-medium hover:from-gold to-coral transition-all">
-            {isNew ? 'Add moment' : 'Save changes'}
-          </button>
-        </div>
+        {editType === 'canvas' && (
+          <div>
+            {editableTitle}
+            <MomentEditor initialData={canvasDraft} onChange={setCanvasDraft} />
+          </div>
+        )}
       </div>
     )
   }
+
+  /** Controls bar below inline edit card: layout picker + style + save/cancel */
+  const renderEditControls = (isNew: boolean) => (
+    <div className="mt-3 space-y-2">
+      {/* Layout picker */}
+      <div className="flex items-center gap-1.5">
+        <span className="font-sans text-[10px] text-warmDark/35 uppercase tracking-wider mr-1">Layout</span>
+        {layoutOptions.map(({ type, preview }) => (
+          <button
+            key={type}
+            onClick={() => { setEditType(type); if (type === 'canvas' && !canvasDraft) setCanvasDraft({ width: 480, height: 220, background: '#fffbf5', blocks: [] }) }}
+            className={`p-1.5 rounded-lg border transition-all ${editType === type ? 'border-gold/50 bg-gold/10 ring-1 ring-gold/25' : 'border-warmMid/10 hover:border-warmMid/20'}`}
+            title={type === 'text' ? 'Text' : type === 'img-left' ? 'Left' : type === 'img-right' ? 'Right' : type === 'img-top' ? 'Top' : type === 'img-bottom' ? 'Bottom' : type === 'photos' ? 'Grid' : 'Canvas'}
+          >
+            <div className="w-6 h-5 flex items-center justify-center">{preview}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* Text style controls */}
+      {editType !== 'canvas' && (
+        <TextStylePanel
+          style={styleTarget === 'title' ? editTitleStyle : editTextStyle}
+          onChange={styleTarget === 'title' ? setEditTitleStyle : setEditTextStyle}
+          onClose={() => {}}
+          inline
+          targetLabel={styleTarget === 'title' ? 'Title' : 'Description'}
+        />
+      )}
+
+      {/* Save / Cancel */}
+      <div className="flex gap-2 pt-1">
+        <button onClick={resetEdit} className="flex-1 py-2 rounded-xl text-sm text-warmDark/75 hover:bg-white/30 transition-all">
+          Cancel
+        </button>
+        <button onClick={handleSave} className="flex-1 py-2 rounded-xl text-sm bg-gradient-to-r from-gold/80 to-coral/70 text-white font-medium hover:from-gold to-coral transition-all">
+          {isNew ? 'Add moment' : 'Save'}
+        </button>
+      </div>
+    </div>
+  )
 
   /* ═══════════════════ RENDER ═══════════════════ */
 
@@ -731,7 +817,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                 </div>
 
               ) : substories.length === 0 ? (
-                /* Empty state */
+                /* Empty state — only show if no canvas layout either */
                 <div className="py-16">
                   <p className="font-handwriting text-3xl text-warmDark/70 mb-2">No stories yet</p>
                   <p className="font-sans text-sm text-warmDark/70">Add moments from this memory</p>
@@ -740,8 +826,9 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
               ) : (
                 /* Timeline with substory cards */
                 <div className="relative">
-                  {/* Timeline line */}
-                  <div className="absolute left-[15px] top-4 bottom-4 w-px bg-gradient-to-b from-gold/25 via-coral/15 to-teal/15" />
+                  <div
+                    className="absolute left-[15px] top-4 bottom-4 w-px bg-gradient-to-b from-gold/25 via-coral/15 to-teal/15"
+                  />
 
                   <div className="space-y-3">
                     {sortedDates.map((date, dateIdx) => (
@@ -769,35 +856,24 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                                 transition={{ delay: (dateIdx * 0.1) + (idx * 0.06), layout: { duration: 0.3, type: 'spring', stiffness: 300, damping: 30 } }}
                                 className={`relative rounded-2xl p-4 transition-all ${
                                   isExpanded
-                                    ? 'ring-2 ring-gold/30 bg-white/50 shadow-sm'
+                                    ? 'ring-2 ring-gold/40 bg-gold/5 shadow-md'
                                     : 'bg-transparent'
                                 }`}
                               >
-                                <AnimatePresence mode="wait">
-                                  {isExpanded ? (
-                                    /* ── Expanded / Edit state ── */
-                                    <motion.div
-                                      key="edit"
-                                      initial={{ opacity: 0 }}
-                                      animate={{ opacity: 1 }}
-                                      exit={{ opacity: 0 }}
-                                      transition={{ duration: 0.2 }}
-                                    >
-                                      {renderEditForm(false)}
-                                    </motion.div>
-                                  ) : (
-                                    /* ── Compact / Read state ── */
-                                    <motion.div
-                                      key="compact"
-                                      initial={{ opacity: 0 }}
-                                      animate={{ opacity: 1 }}
-                                      exit={{ opacity: 0 }}
-                                      transition={{ duration: 0.2 }}
-                                    >
-                                      <CompactCard sub={sub} idx={idx} gradIdx={idx} />
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
+                                {/* Card — read-only or inline editable */}
+                                {isExpanded ? (
+                                  <motion.div
+                                    key="inline-edit"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ duration: 0.2 }}
+                                  >
+                                    {renderInlineEditCard(false)}
+                                    {renderEditControls(false)}
+                                  </motion.div>
+                                ) : (
+                                  <CompactCard sub={sub} idx={idx} gradIdx={idx} />
+                                )}
 
                                 {/* Separator */}
                                 {!isExpanded && <div className="h-px bg-warmMid/5 mt-5" />}
@@ -824,7 +900,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              {allPhotos.length === 0 ? (
+              {!hasMediaItems ? (
                 <div className="py-16">
                   <Camera className="w-12 h-12 text-warmDark/75 mx-auto mb-3" />
                   <p className="font-handwriting text-3xl text-warmDark/70 mb-2">No photos yet</p>
@@ -841,25 +917,33 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                       className="group"
                     >
                       <div
-                        className={`rounded-2xl border border-white/30 relative overflow-hidden cursor-pointer ${item.url ? 'bg-black/5' : `bg-gradient-to-br ${storyGradients[i % storyGradients.length]}`}`}
-                        onClick={() => {
-                          if (item.url) openLightbox(item.url)
-                        }}
+                        className="rounded-2xl border border-white/30 relative overflow-hidden cursor-pointer bg-black/5 aspect-square"
+                        onClick={() => openLightbox(item.url)}
                       >
-                        {item.url ? (
-                          <img src={mediumUrl(item.url)} alt={item.title} className="w-full object-contain" loading="lazy" />
-                        ) : (
-                          <div className="h-32 flex items-center justify-center">
-                            <Image className="w-8 h-8 text-warmDark/75" />
+                        <img src={mediumUrl(item.url)} alt={item.title} className="w-full h-full object-cover rounded-2xl" loading="lazy" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-end">
+                          <div className="w-full bg-gradient-to-t from-black/40 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {item.title && <p className="text-white text-sm truncate">{item.title}</p>}
                           </div>
-                        )}
-                        {item.url && (
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-end">
-                            <div className="w-full bg-gradient-to-t from-black/40 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {item.title && <p className="text-white text-sm truncate">{item.title}</p>}
-                            </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                  {canvasItems.map((item, i) => (
+                    <motion.div
+                      key={item.key}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: (gridItems.length + i) * 0.04 }}
+                      className="group"
+                    >
+                      <div className="rounded-2xl border border-white/30 relative overflow-hidden bg-white/60 aspect-square flex items-center justify-center p-2">
+                        <CanvasRenderer data={item.canvasData} />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-end pointer-events-none">
+                          <div className="w-full bg-gradient-to-t from-black/30 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {item.title && <p className="text-white text-sm truncate">{item.title}</p>}
                           </div>
-                        )}
+                        </div>
                       </div>
                     </motion.div>
                   ))}
@@ -951,7 +1035,11 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                   transition={{ duration: 0.5, ease: 'easeInOut' }}
                   className="w-full h-full flex flex-col items-center justify-center px-6"
                 >
-                  {slideshowSlides[slideshowIdx]?.photo ? (
+                  {slideshowSlides[slideshowIdx]?.canvasData ? (
+                    <div className="max-w-lg w-full">
+                      <CanvasRenderer data={slideshowSlides[slideshowIdx].canvasData!} />
+                    </div>
+                  ) : slideshowSlides[slideshowIdx]?.photo ? (
                     <img
                       src={fullUrl(slideshowSlides[slideshowIdx].photo!)}
                       alt=""
@@ -1041,7 +1129,8 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                   <X className="w-4 h-4 text-warmDark/60" />
                 </button>
               </div>
-              {renderEditForm(true)}
+              {renderInlineEditCard(true)}
+              {renderEditControls(true)}
             </motion.div>
           </motion.div>
         )}
@@ -1115,6 +1204,8 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
           onCancel={() => { setCropSrc(null); setCropIndex(null) }}
         />
       )}
+
+
     </div>
   )
 }

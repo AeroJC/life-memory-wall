@@ -1,11 +1,23 @@
+export interface TextStyle {
+  fontFamily?: string
+  fontSize?: 'small' | 'normal' | 'large' | 'heading'
+  textAlign?: 'left' | 'center' | 'right' | 'justify'
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+}
+
 export interface SubStory {
   id: string
   date: string
-  type: 'text' | 'photo' | 'photos' | 'img-left' | 'img-right' | 'img-top' | 'img-bottom'
+  type: 'text' | 'photo' | 'photos' | 'img-left' | 'img-right' | 'img-top' | 'img-bottom' | 'canvas'
   title?: string
   content?: string
   photos?: string[]
   caption?: string
+  textStyle?: TextStyle
+  titleStyle?: TextStyle
+  canvasData?: CanvasData
 }
 
 export interface Memory {
@@ -92,4 +104,35 @@ export interface SpacePendingInvite {
   invitedBy: string
   status: 'pending' | 'rejected'
   createdAt: string
+}
+
+/* ── Canvas Editor types ── */
+
+export interface EditorBlock {
+  id: string
+  type: 'text' | 'heading' | 'image'
+  x: number
+  y: number
+  width: number
+  height: number
+  content?: string          // text/heading content
+  imageUrl?: string         // image source URL
+  imageOffsetX?: number     // 0-100 object-position X (default 50)
+  imageOffsetY?: number     // 0-100 object-position Y (default 50)
+  style?: {
+    fontFamily?: string
+    fontSize?: number       // px
+    color?: string
+    bold?: boolean
+    italic?: boolean
+    underline?: boolean
+    textAlign?: 'left' | 'center' | 'right'
+  }
+}
+
+export interface CanvasData {
+  width: number
+  height: number
+  background: string        // color, gradient, or image URL
+  blocks: EditorBlock[]
 }

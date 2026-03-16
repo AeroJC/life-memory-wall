@@ -46,7 +46,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
   const [addFormStep, setAddFormStep] = useState<'pick' | 'edit'>('pick')
   const [newTitle, setNewTitle] = useState('')
   const [newContent, setNewContent] = useState('')
-  const [newType, setNewType] = useState<'text' | 'photo' | 'photos' | 'img-left' | 'img-right' | 'img-top' | 'img-bottom'>('text')
+  const [newType, setNewType] = useState<'text' | 'photo' | 'photos' | 'img-left' | 'img-right' | 'img-top' | 'img-bottom' | 'canvas'>('text')
   const [newPhotos, setNewPhotos] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [editingSubstoryId, setEditingSubstoryId] = useState<string | null>(null)

@@ -480,6 +480,17 @@ export default function LoginPage() {
 
       <ParticleBackground />
 
+      {/* Logo — top left */}
+      <div className="absolute top-8 left-8 z-20">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gold/80 to-coral/70 flex items-center justify-center shadow-lg">
+          <svg width="36" height="36" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="14" stroke="white" strokeWidth="2.5" opacity="0.9" />
+            <circle cx="20" cy="20" r="8" stroke="white" strokeWidth="2" opacity="0.7" />
+            <circle cx="20" cy="20" r="3" fill="white" opacity="0.9" />
+          </svg>
+        </div>
+      </div>
+
       <motion.div
         className="absolute w-64 h-64 rounded-full bg-gradient-to-br from-lavender/40 to-transparent blur-2xl"
         animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
@@ -795,11 +806,7 @@ export default function LoginPage() {
                       {loading ? 'Signing in…' : 'Sign in'}
                     </motion.button>
 
-                    <div className="flex items-center justify-between">
-                      <button onClick={() => { setEmailStep('enter'); setLoginError('') }}
-                        className="text-warmDark/70 text-sm hover:text-warmDark/70 transition-colors">
-                        Use a different email
-                      </button>
+                    <div className="flex items-center justify-center">
                       <button
                         onClick={() => { setForgotEmail(email); setForgotStep('email'); setScreen('forgot') }}
                         className="text-warmDark/70 text-sm hover:text-warmDark/70 transition-colors">

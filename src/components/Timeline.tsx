@@ -17,9 +17,12 @@ export default function Timeline() {
     useStore()
   const [showCreate, setShowCreate] = useState(false)
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null)
-  const [selectedMemoryId, setSelectedMemoryIdRaw] = useState<string | null>(
-    () => localStorage.getItem('selectedMemoryId')
-  )
+  const [selectedMemoryId, setSelectedMemoryIdRaw] = useState<string | null>(() => {
+    const saved = localStorage.getItem('selectedMemoryId')
+    const savedSpace = localStorage.getItem('selectedMemorySpaceId')
+    // Only restore if it belongs to the current space
+    return saved && savedSpace === space?.id ? saved : null
+  })
 
   const skipMemoryPush = useRef(false)
 
@@ -27,11 +30,13 @@ export default function Timeline() {
     setSelectedMemoryIdRaw(id)
     if (id) {
       localStorage.setItem('selectedMemoryId', id)
+      localStorage.setItem('selectedMemorySpaceId', space?.id || '')
       if (!skipMemoryPush.current) {
         window.history.pushState({ view: 'memory', memoryId: id }, '')
       }
     } else {
       localStorage.removeItem('selectedMemoryId')
+      localStorage.removeItem('selectedMemorySpaceId')
     }
     skipMemoryPush.current = false
   }
@@ -183,7 +188,6 @@ export default function Timeline() {
   const handleDeleteSubstory = (memoryId: string, substoryId: string) => {
     deleteSubstory(space.id, memoryId, substoryId)
   }
-
 
   const goBack = () => {
     if (isDetailOpen) {
@@ -532,8 +536,12 @@ export default function Timeline() {
       <div className={`relative z-0 max-w-7xl mx-auto px-4 ${isDetailOpen ? 'pt-0 pb-0' : 'pb-16 pt-4'}`}>
         <div className="flex gap-6 relative">
 
-          {/* LEFT: Timeline list */}
-          <div className={`relative transition-all duration-500 ${isDetailOpen ? 'w-[12%] min-w-[180px] hidden md:block' : 'w-full'}`}>
+          {/* LEFT: Timeline list — collapses when text style panel or edit panel opens */}
+          <div className={`relative transition-all duration-500 overflow-hidden ${
+            isDetailOpen
+              ? 'w-[12%] min-w-[180px] opacity-100 hidden md:block'
+              : 'w-full'
+          }`}>
 
             {/* Center path for full view */}
             {!isDetailOpen && (
@@ -549,7 +557,7 @@ export default function Timeline() {
               </svg>
             )}
 
-            {/* Left path for compact view */}
+            {/* Left path for compact view — hides when text style or edit panel is open */}
             {isDetailOpen && (
               <div className="absolute left-3 top-0 bottom-0 w-px bg-gradient-to-b from-gold/20 via-coral/20 to-teal/20" />
             )}
@@ -689,7 +697,10 @@ export default function Timeline() {
                   onAddSubstory={handleAddSubstory}
                   onUpdateSubstory={handleUpdateSubstory}
                   onDeleteSubstory={handleDeleteSubstory}
+
                   canEdit={canEdit}
+
+                  onEditingChange={() => {}}
                 />
               </motion.div>
             )}
@@ -713,7 +724,10 @@ export default function Timeline() {
                     onAddSubstory={handleAddSubstory}
                     onUpdateSubstory={handleUpdateSubstory}
                     onDeleteSubstory={handleDeleteSubstory}
+  
                     canEdit={canEdit}
+  
+                    onEditingChange={() => {}}
                   />
                 </div>
               </motion.div>

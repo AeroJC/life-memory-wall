@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
 
 const EMOJI_CATEGORIES: Record<string, string[]> = {
   'Smileys': [
@@ -63,9 +62,10 @@ interface Props {
   onChange: (html: string) => void
   placeholder?: string
   className?: string
+  editorStyle?: React.CSSProperties
 }
 
-export default function RichTextEditor({ value, onChange, placeholder, className }: Props) {
+export default function RichTextEditor({ value, onChange, placeholder, className, editorStyle }: Props) {
   const editorRef = useRef<HTMLDivElement>(null)
   const savedRange = useRef<Range | null>(null)
   const [showEmojis, setShowEmojis] = useState(false)
@@ -158,32 +158,6 @@ export default function RichTextEditor({ value, onChange, placeholder, className
     <div className={`relative ${className ?? ''}`}>
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center gap-1 mb-1.5 bg-white/50 rounded-xl px-2.5 py-1.5 border border-warmMid/10">
-        <button type="button" onMouseDown={(e) => applyFormat(e, 'bold')}
-          className={`${fmtBtn(isActive('bold'))} w-8 font-bold`} title="Bold">B</button>
-        <button type="button" onMouseDown={(e) => applyFormat(e, 'italic')}
-          className={`${fmtBtn(isActive('italic'))} w-8 italic`} title="Italic">I</button>
-        <button type="button" onMouseDown={(e) => applyFormat(e, 'underline')}
-          className={`${fmtBtn(isActive('underline'))} w-8 underline`} title="Underline">U</button>
-        <button type="button" onMouseDown={(e) => applyFormat(e, 'strikeThrough')}
-          className={`${fmtBtn(isActive('strikeThrough'))} w-8 line-through`} title="Strikethrough">S</button>
-
-        <div className="w-px h-4 bg-warmMid/20 mx-0.5" />
-
-        <button type="button" onMouseDown={(e) => applyFormat(e, 'justifyLeft')}
-          className={`${fmtBtn(isActive('justifyLeft'))} w-8`} title="Align left">
-          <AlignLeft className="w-3.5 h-3.5" />
-        </button>
-        <button type="button" onMouseDown={(e) => applyFormat(e, 'justifyCenter')}
-          className={`${fmtBtn(isActive('justifyCenter'))} w-8`} title="Align center">
-          <AlignCenter className="w-3.5 h-3.5" />
-        </button>
-        <button type="button" onMouseDown={(e) => applyFormat(e, 'justifyRight')}
-          className={`${fmtBtn(isActive('justifyRight'))} w-8`} title="Align right">
-          <AlignRight className="w-3.5 h-3.5" />
-        </button>
-
-        <div className="w-px h-4 bg-warmMid/20 mx-0.5" />
-
         <button
           type="button"
           onMouseDown={(e) => { e.preventDefault(); setShowEmojis(v => !v) }}
@@ -227,6 +201,7 @@ export default function RichTextEditor({ value, onChange, placeholder, className
         onSelect={saveRange}
         data-placeholder={placeholder}
         className="rich-editor w-full font-sans text-warmDark bg-white/40 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-gold/15 transition-all leading-relaxed min-h-[80px]"
+        style={editorStyle}
       />
     </div>
   )
