@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, KeyRound, LogOut, UserMinus, ArrowLeft, User, ImagePlus, Copy, Lock, Unlock, UserPlus } from 'lucide-react'
+import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, KeyRound, LogOut, UserMinus, ArrowLeft, User, ImagePlus, Copy, Lock, Unlock, UserPlus, Share2, MessageCircle, Smartphone } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { useStore } from '../store/useStore'
 import { api } from '../api'
 import { uploadImage } from '../cloudinary'
@@ -132,6 +133,8 @@ export default function SpaceSelector() {
   const [joinError, setJoinError] = useState('')
   const [joinSuccess, setJoinSuccess] = useState('')
   const [codeCopied, setCodeCopied] = useState(false)
+  const [shareSheetCode, setShareSheetCode] = useState<string | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
   const [membersTab, setMembersTab] = useState<'members' | 'requests'>('members')
 
   const pwSuccessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -298,6 +301,37 @@ export default function SpaceSelector() {
     })
   }
 
+  const getInviteUrl = (code: string) => `${window.location.origin}?join=${code}`
+
+  const shareInviteLink = async (code: string) => {
+    const url = getInviteUrl(code)
+    const text = `Join my space on My Inner Circle! Tap the link or enter code ${code}`
+    if (Capacitor.isNativePlatform()) {
+      const { Share } = await import('@capacitor/share')
+      await Share.share({ title: 'Join my Inner Circle space', text, url, dialogTitle: 'Share invite link' })
+      return
+    }
+    setShareSheetCode(code)
+  }
+
+  const copyInviteLink = (code: string) => {
+    navigator.clipboard.writeText(getInviteUrl(code)).then(() => {
+      setLinkCopied(true)
+      setTimeout(() => { setLinkCopied(false); setShareSheetCode(null) }, 2000)
+    })
+  }
+
+  // Handle deep link: ?join=CODE opens join modal with code pre-filled
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const joinParam = params.get('join')
+    if (joinParam) {
+      setJoinCode(joinParam.toUpperCase())
+      setModal('join')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
+
   const viewingSpace = spaces.find((s) => s.id === viewingSpaceId)
   const editingSpace = spaces.find((s) => s.id === editingSpaceId)
 
@@ -339,6 +373,8 @@ export default function SpaceSelector() {
     setJoinError('')
     setJoinSuccess('')
     setCodeCopied(false)
+    setShareSheetCode(null)
+    setLinkCopied(false)
     setCreateError('')
     setEditError('')
     // Vault / hide state reset
@@ -1108,19 +1144,39 @@ export default function SpaceSelector() {
                     <div className="flex flex-col items-center gap-4 mb-6">
                       <div className="bg-white/60 border border-warmMid/20 rounded-2xl px-6 py-4 flex items-center gap-3">
                         <span className="font-mono text-2xl tracking-[0.3em] text-warmDark font-bold select-all">{createdInviteCode}</span>
-                        <button
-                          onClick={() => copyInviteCode(createdInviteCode)}
-                          className="p-2 rounded-xl hover:bg-warmMid/10 transition-colors text-warmDark/50 hover:text-warmDark"
-                          title="Copy code"
-                        >
+                        <button onClick={() => copyInviteCode(createdInviteCode)} className="p-2 rounded-xl hover:bg-warmMid/10 transition-colors text-warmDark/50 hover:text-warmDark" title="Copy code">
                           {codeCopied ? <Check className="w-5 h-5 text-teal" /> : <Copy className="w-5 h-5" />}
+                        </button>
+                        <button onClick={() => shareInviteLink(createdInviteCode)} className="p-2 rounded-xl hover:bg-warmMid/10 transition-colors text-warmDark/50 hover:text-warmDark" title="Share invite link">
+                          <Share2 className="w-5 h-5" />
                         </button>
                       </div>
                       {codeCopied && (
-                        <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="text-sm text-teal font-sans">
-                          Copied to clipboard!
-                        </motion.p>
+                        <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="text-sm text-teal font-sans">Code copied!</motion.p>
                       )}
+                      {/* Fallback share sheet */}
+                      <AnimatePresence>
+                        {shareSheetCode === createdInviteCode && (
+                          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="w-full bg-white/70 rounded-2xl p-4 flex flex-col gap-3">
+                            <p className="font-sans text-xs text-warmDark/50 text-center">Share via</p>
+                            <div className="flex gap-2">
+                              <a href={`https://wa.me/?text=${encodeURIComponent(`Join my space on My Inner Circle! ${getInviteUrl(createdInviteCode)}`)}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors">
+                                <MessageCircle className="w-5 h-5 text-[#25D366]" />
+                                <span className="font-sans text-xs text-warmDark/70">WhatsApp</span>
+                              </a>
+                              <a href={`sms:?body=${encodeURIComponent(`Join my space on My Inner Circle! ${getInviteUrl(createdInviteCode)}`)}`} className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl bg-teal/10 hover:bg-teal/20 transition-colors">
+                                <Smartphone className="w-5 h-5 text-teal" />
+                                <span className="font-sans text-xs text-warmDark/70">SMS</span>
+                              </a>
+                              <button onClick={() => copyInviteLink(createdInviteCode)} className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl bg-gold/10 hover:bg-gold/20 transition-colors">
+                                {linkCopied ? <Check className="w-5 h-5 text-gold" /> : <Copy className="w-5 h-5 text-gold" />}
+                                <span className="font-sans text-xs text-warmDark/70">{linkCopied ? 'Copied!' : 'Copy link'}</span>
+                              </button>
+                            </div>
+                            <button onClick={() => setShareSheetCode(null)} className="font-sans text-xs text-warmDark/40 hover:text-warmDark/60 transition-colors">Dismiss</button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                       <p className="font-sans text-sm text-warmDark/50 text-center leading-relaxed">
                         Friends can use this code to request to join.<br />You'll be able to approve or decline requests.
                       </p>
@@ -1898,18 +1954,36 @@ export default function SpaceSelector() {
                             <p className="font-sans text-xs text-warmDark/50 mb-2">Invite code</p>
                             <div className="flex items-center gap-2 bg-white/40 rounded-xl px-4 py-2.5">
                               <span className="font-mono text-base tracking-[0.2em] text-warmDark font-semibold flex-1 select-all">{viewingSpace.inviteCode}</span>
-                              <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(viewingSpace.inviteCode || '')
-                                  setCodeCopied(true)
-                                  setTimeout(() => setCodeCopied(false), 2000)
-                                }}
-                                className="p-1.5 rounded-lg hover:bg-warmMid/10 transition-colors text-warmDark/50 hover:text-warmDark"
-                                title="Copy code"
-                              >
+                              <button onClick={() => copyInviteCode(viewingSpace.inviteCode!)} className="p-1.5 rounded-lg hover:bg-warmMid/10 transition-colors text-warmDark/50 hover:text-warmDark" title="Copy code">
                                 {codeCopied ? <Check className="w-4 h-4 text-teal" /> : <Copy className="w-4 h-4" />}
                               </button>
+                              <button onClick={() => shareInviteLink(viewingSpace.inviteCode!)} className="p-1.5 rounded-lg hover:bg-warmMid/10 transition-colors text-warmDark/50 hover:text-warmDark" title="Share invite link">
+                                <Share2 className="w-4 h-4" />
+                              </button>
                             </div>
+                            {/* Fallback share sheet */}
+                            <AnimatePresence>
+                              {shareSheetCode === viewingSpace.inviteCode && (
+                                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="mt-3 bg-white/70 rounded-2xl p-3 flex flex-col gap-3">
+                                  <p className="font-sans text-xs text-warmDark/50 text-center">Share via</p>
+                                  <div className="flex gap-2">
+                                    <a href={`https://wa.me/?text=${encodeURIComponent(`Join my space on My Inner Circle! ${getInviteUrl(viewingSpace.inviteCode)}`)}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors">
+                                      <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                                      <span className="font-sans text-[11px] text-warmDark/70">WhatsApp</span>
+                                    </a>
+                                    <a href={`sms:?body=${encodeURIComponent(`Join my space on My Inner Circle! ${getInviteUrl(viewingSpace.inviteCode)}`)}`} className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-teal/10 hover:bg-teal/20 transition-colors">
+                                      <Smartphone className="w-4 h-4 text-teal" />
+                                      <span className="font-sans text-[11px] text-warmDark/70">SMS</span>
+                                    </a>
+                                    <button onClick={() => copyInviteLink(viewingSpace.inviteCode!)} className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl bg-gold/10 hover:bg-gold/20 transition-colors">
+                                      {linkCopied ? <Check className="w-4 h-4 text-gold" /> : <Copy className="w-4 h-4 text-gold" />}
+                                      <span className="font-sans text-[11px] text-warmDark/70">{linkCopied ? 'Copied!' : 'Copy link'}</span>
+                                    </button>
+                                  </div>
+                                  <button onClick={() => setShareSheetCode(null)} className="font-sans text-xs text-warmDark/40 hover:text-warmDark/60 transition-colors">Dismiss</button>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                             <p className="font-sans text-[11px] text-warmDark/40 mt-1.5">Share this code so others can request to join</p>
                           </div>
                         )}
