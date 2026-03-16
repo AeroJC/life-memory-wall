@@ -63,6 +63,9 @@ export interface MemorySpace {
   id: string
   title: string
   coverImage: string
+  coverImageOffsetX?: number
+  coverImageOffsetY?: number
+  coverImageScale?: number
   coverEmoji: string
   coverIcon: string
   coverColor: string

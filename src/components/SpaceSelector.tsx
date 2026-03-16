@@ -12,6 +12,7 @@ import {
 import { validatePassword } from '../utils/validation'
 import { MemorySpace } from '../types'
 import ParticleBackground from './ParticleBackground'
+import ImageCropModal from './ImageCropModal'
 
 const defaultSpaceColors = [
   'from-purple-200/60 to-pink-200/60',
@@ -58,7 +59,18 @@ export default function SpaceSelector() {
   const [newType, setNewType] = useState<'personal' | 'group'>('personal')
   const [createStep, setCreateStep] = useState<'type' | 'design' | 'invite'>('type')
   const [newCoverImage, setNewCoverImage] = useState('')
+  const [newCoverImagePosX, setNewCoverImagePosX] = useState(50)
+  const [newCoverImagePosY, setNewCoverImagePosY] = useState(50)
+  const [newCoverImageScale, setNewCoverImageScale] = useState(1)
   const [coverImageUploading, setCoverImageUploading] = useState(false)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
+  const [cropTarget, setCropTarget] = useState<'create' | 'edit' | null>(null)
+  const [cropIsReadjust, setCropIsReadjust] = useState(false)
+  const [cropPendingFile, setCropPendingFile] = useState<File | null>(null)
+  const [cropInitialPosX, setCropInitialPosX] = useState(50)
+  const [cropInitialPosY, setCropInitialPosY] = useState(50)
+  const [cropInitialScale, setCropInitialScale] = useState(1)
+  const [cropUploading, setCropUploading] = useState(false)
   const [createdSpaceId, setCreatedSpaceId] = useState<string | null>(null)
   const [createdInviteCode, setCreatedInviteCode] = useState<string | null>(null)
   const [viewingSpaceId, setViewingSpaceId] = useState<string | null>(null)
@@ -88,6 +100,9 @@ export default function SpaceSelector() {
   const [editColor, setEditColor] = useState('purple-pink')
   const [editDescription, setEditDescription] = useState('')
   const [editCoverImage, setEditCoverImage] = useState('')
+  const [editCoverImagePosX, setEditCoverImagePosX] = useState(50)
+  const [editCoverImagePosY, setEditCoverImagePosY] = useState(50)
+  const [editCoverImageScale, setEditCoverImageScale] = useState(1)
   const [editCoverImageUploading, setEditCoverImageUploading] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [deleteConfirmSpace, setDeleteConfirmSpace] = useState<MemorySpace | null>(null)
@@ -184,6 +199,9 @@ export default function SpaceSelector() {
       id: `space-${Date.now()}`,
       title: newTitle,
       coverImage: newCoverImage,
+      coverImageOffsetX: newCoverImagePosX,
+      coverImageOffsetY: newCoverImagePosY,
+      coverImageScale: newCoverImageScale,
       coverEmoji: '✨',
       coverIcon: iconId,
       coverColor: newColor,
@@ -202,6 +220,9 @@ export default function SpaceSelector() {
       setNewIconVariation(0)
       setNewColor('purple-pink')
       setNewCoverImage('')
+      setNewCoverImagePosX(50)
+      setNewCoverImagePosY(50)
+      setNewCoverImageScale(1)
       setNewDescription(randomTaglineForIcon('couple'))
       if (newType === 'group' && created?.id) {
         setCreatedSpaceId(created.id)
@@ -220,6 +241,9 @@ export default function SpaceSelector() {
     setEditingSpaceId(space.id)
     setEditTitle(space.title)
     setEditCoverImage(space.coverImage || '')
+    setEditCoverImagePosX(space.coverImageOffsetX ?? 50)
+    setEditCoverImagePosY(space.coverImageOffsetY ?? 50)
+    setEditCoverImageScale(space.coverImageScale ?? 1)
     if (space.coverIcon) {
       const base = space.coverIcon.replace(/-[0-2]$/, '')
       const variation = getIconVariation(space.coverIcon)
@@ -242,7 +266,7 @@ export default function SpaceSelector() {
     }
     setEditError('')
     const iconId = makeIconId(editIcon, editIconVariation)
-    await updateSpace(editingSpaceId, { title: editTitle.trim(), coverImage: editCoverImage || undefined, coverIcon: editCoverImage ? '' : iconId, coverColor: editColor, description: editDescription.trim() || undefined })
+    await updateSpace(editingSpaceId, { title: editTitle.trim(), coverImage: editCoverImage || undefined, coverImageOffsetX: editCoverImagePosX, coverImageOffsetY: editCoverImagePosY, coverImageScale: editCoverImageScale, coverIcon: editCoverImage ? '' : iconId, coverColor: editColor, description: editDescription.trim() || undefined })
     setModal('none'); setEditingSpaceId(null); setEditPageMode(false)
   }
 
@@ -716,7 +740,14 @@ export default function SpaceSelector() {
                       ${isHidden && vaultOpen ? 'opacity-70' : ''}
                       ${space.coverImage ? '' : `bg-gradient-to-br ${space.coverColor ? getColorClasses(space.coverColor) : defaultSpaceColors[i % defaultSpaceColors.length]} flex items-center justify-center`}`}>
                       {space.coverImage ? (
-                        <img src={space.coverImage} alt={space.title} className="w-full h-full object-cover" />
+                        <div className="w-full h-full" style={{
+                          backgroundImage: `url(${space.coverImage})`,
+                          backgroundSize: 'cover',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: `${space.coverImageOffsetX ?? 50}% ${space.coverImageOffsetY ?? 50}%`,
+                          transform: `scale(${space.coverImageScale ?? 1})`,
+                          transformOrigin: `${space.coverImageOffsetX ?? 50}% ${space.coverImageOffsetY ?? 50}%`,
+                        }} />
                       ) : (
                         <>
                           <div className={`absolute inset-0 bg-white/20 transition-opacity duration-500 ${!editPageMode ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'}`} />
@@ -941,7 +972,14 @@ export default function SpaceSelector() {
                         <div className={`w-28 h-28 rounded-full border border-white/50 shadow-lg overflow-hidden flex items-center justify-center
                           ${newCoverImage ? '' : `bg-gradient-to-br ${getColorClasses(newColor)}`}`}>
                           {newCoverImage ? (
-                            <img src={newCoverImage} alt="cover" className="w-full h-full object-cover" />
+                            <div className="w-full h-full" style={{
+                              backgroundImage: `url(${newCoverImage})`,
+                              backgroundSize: 'cover',
+                              backgroundRepeat: 'no-repeat',
+                              backgroundPosition: `${newCoverImagePosX}% ${newCoverImagePosY}%`,
+                              transform: `scale(${newCoverImageScale})`,
+                              transformOrigin: `${newCoverImagePosX}% ${newCoverImagePosY}%`,
+                            }} />
                           ) : (
                             <SpaceIconRenderer iconId={makeIconId(newIcon, newIconVariation)} size="full" />
                           )}
@@ -958,30 +996,38 @@ export default function SpaceSelector() {
                         {!newCoverImage && (
                           <label className="absolute bottom-1 right-1 z-10 w-8 h-8 rounded-full bg-warmDark/70 text-white flex items-center justify-center cursor-pointer hover:bg-warmDark transition-colors shadow-md">
                             {coverImageUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-                            <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                               const file = e.target.files?.[0]
                               if (!file) return
-                              setCoverImageUploading(true)
-                              try {
-                                const url = await uploadImage(file)
-                                setNewCoverImage(url)
-                              } catch {
-                                // silently fail
-                              } finally {
-                                setCoverImageUploading(false)
-                                e.target.value = ''
-                              }
+                              setCropSrc(URL.createObjectURL(file))
+                              setCropTarget('create')
+                              setCropIsReadjust(false)
+                              setCropPendingFile(file)
+                              setCropInitialPosX(50)
+                              setCropInitialPosY(50)
+                              setCropInitialScale(1)
+                              e.target.value = ''
                             }} />
                           </label>
                         )}
                         {newCoverImage && (
-                          <button
-                            type="button"
-                            onClick={() => setNewCoverImage('')}
-                            className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-warmDark/70 text-white flex items-center justify-center hover:bg-warmDark transition-colors"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setNewCoverImage('')}
+                              className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-warmDark/70 text-white flex items-center justify-center hover:bg-warmDark transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setCropSrc(newCoverImage); setCropTarget('create'); setCropIsReadjust(true); setCropInitialPosX(newCoverImagePosX); setCropInitialPosY(newCoverImagePosY); setCropInitialScale(newCoverImageScale) }}
+                              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-gold/80 text-white flex items-center justify-center hover:bg-gold transition-colors text-xs font-bold"
+                              title="Adjust crop"
+                            >
+                              ⌖
+                            </button>
+                          </>
                         )}
                       </div>
                       <p className="text-xs font-sans text-warmDark/50">Tap the camera to upload a photo</p>
@@ -1115,7 +1161,14 @@ export default function SpaceSelector() {
                         <div className={`w-28 h-28 rounded-full border border-white/50 shadow-lg overflow-hidden flex items-center justify-center
                           ${editCoverImage ? '' : `bg-gradient-to-br ${getColorClasses(editColor)}`}`}>
                           {editCoverImage ? (
-                            <img src={editCoverImage} alt="cover" className="w-full h-full object-cover" />
+                            <div className="w-full h-full" style={{
+                              backgroundImage: `url(${editCoverImage})`,
+                              backgroundSize: 'cover',
+                              backgroundRepeat: 'no-repeat',
+                              backgroundPosition: `${editCoverImagePosX}% ${editCoverImagePosY}%`,
+                              transform: `scale(${editCoverImageScale})`,
+                              transformOrigin: `${editCoverImagePosX}% ${editCoverImagePosY}%`,
+                            }} />
                           ) : (
                             <SpaceIconRenderer iconId={makeIconId(editIcon, editIconVariation)} size="full" />
                           )}
@@ -1131,30 +1184,38 @@ export default function SpaceSelector() {
                         {!editCoverImage && (
                           <label className="absolute bottom-1 right-1 z-10 w-8 h-8 rounded-full bg-warmDark/70 text-white flex items-center justify-center cursor-pointer hover:bg-warmDark transition-colors shadow-md">
                             {editCoverImageUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-                            <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                               const file = e.target.files?.[0]
                               if (!file) return
-                              setEditCoverImageUploading(true)
-                              try {
-                                const url = await uploadImage(file)
-                                setEditCoverImage(url)
-                              } catch {
-                                // silently fail
-                              } finally {
-                                setEditCoverImageUploading(false)
-                                e.target.value = ''
-                              }
+                              setCropSrc(URL.createObjectURL(file))
+                              setCropTarget('edit')
+                              setCropIsReadjust(false)
+                              setCropPendingFile(file)
+                              setCropInitialPosX(50)
+                              setCropInitialPosY(50)
+                              setCropInitialScale(1)
+                              e.target.value = ''
                             }} />
                           </label>
                         )}
                         {editCoverImage && (
-                          <button
-                            type="button"
-                            onClick={() => setEditCoverImage('')}
-                            className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-warmDark/70 text-white flex items-center justify-center hover:bg-warmDark transition-colors"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setEditCoverImage('')}
+                              className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-warmDark/70 text-white flex items-center justify-center hover:bg-warmDark transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setCropSrc(editCoverImage); setCropTarget('edit'); setCropIsReadjust(true); setCropInitialPosX(editCoverImagePosX); setCropInitialPosY(editCoverImagePosY); setCropInitialScale(editCoverImageScale) }}
+                              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-gold/80 text-white flex items-center justify-center hover:bg-gold transition-colors text-xs font-bold"
+                              title="Adjust crop"
+                            >
+                              ⌖
+                            </button>
+                          </>
                         )}
                       </div>
                       <p className="text-xs font-sans text-warmDark/50">Tap the camera to change photo</p>
@@ -2231,6 +2292,42 @@ export default function SpaceSelector() {
               )}
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* IMAGE CROP MODAL */}
+      <AnimatePresence>
+        {cropSrc && (
+          <ImageCropModal
+            src={cropSrc}
+            initialPosX={cropInitialPosX}
+            initialPosY={cropInitialPosY}
+            initialScale={cropInitialScale}
+            uploading={cropUploading}
+            onCancel={() => {
+              if (!cropIsReadjust) URL.revokeObjectURL(cropSrc)
+              setCropSrc(null); setCropTarget(null); setCropPendingFile(null)
+            }}
+            onDone={async ({ posX, posY, scale }) => {
+              if (cropIsReadjust) {
+                // Re-adjust only: no re-upload, just update position
+                if (cropTarget === 'create') { setNewCoverImagePosX(posX); setNewCoverImagePosY(posY); setNewCoverImageScale(scale) }
+                else { setEditCoverImagePosX(posX); setEditCoverImagePosY(posY); setEditCoverImageScale(scale) }
+                setCropSrc(null); setCropTarget(null)
+              } else {
+                // New upload: upload the original file, then save URL + position
+                setCropUploading(true)
+                try {
+                  const url = await uploadImage(cropPendingFile!)
+                  if (cropTarget === 'create') { setNewCoverImage(url); setNewCoverImagePosX(posX); setNewCoverImagePosY(posY); setNewCoverImageScale(scale) }
+                  else { setEditCoverImage(url); setEditCoverImagePosX(posX); setEditCoverImagePosY(posY); setEditCoverImageScale(scale) }
+                } catch { /* silently fail */ } finally {
+                  URL.revokeObjectURL(cropSrc)
+                  setCropSrc(null); setCropTarget(null); setCropPendingFile(null); setCropUploading(false)
+                }
+              }
+            }}
+          />
         )}
       </AnimatePresence>
 

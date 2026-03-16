@@ -46,7 +46,7 @@ interface AppState {
   updateMemorySubstories: (spaceId: string, memoryId: string, substories: SubStory[]) => void
 
   addSpace: (space: MemorySpace) => Promise<any | null>
-  updateSpace: (spaceId: string, data: { title?: string; coverEmoji?: string; coverIcon?: string; coverColor?: string; coverImage?: string; description?: string }) => Promise<void>
+  updateSpace: (spaceId: string, data: { title?: string; coverEmoji?: string; coverIcon?: string; coverColor?: string; coverImage?: string; coverImageOffsetX?: number; coverImageOffsetY?: number; coverImageScale?: number; description?: string }) => Promise<void>
   deleteSpace: (spaceId: string) => Promise<void>
   updateSubstory: (spaceId: string, memoryId: string, substoryId: string, data: Partial<SubStory>) => Promise<void>
   deleteSubstory: (spaceId: string, memoryId: string, substoryId: string) => Promise<void>
@@ -322,6 +322,9 @@ export const useStore = create<AppState>((set, get) => ({
         coverIcon: space.coverIcon,
         coverColor: space.coverColor,
         coverImage: space.coverImage,
+        coverImageOffsetX: space.coverImageOffsetX,
+        coverImageOffsetY: space.coverImageOffsetY,
+        coverImageScale: space.coverImageScale,
         type: space.type,
         description: space.description,
       })

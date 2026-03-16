@@ -119,7 +119,7 @@ export const api = {
   getSpacePaginated: (id: string, cursor?: string, limit = 20) =>
     request<any>(`/spaces/${id}${cursor ? `?cursor=${cursor}&limit=${limit}` : `?limit=${limit}`}`),
 
-  createSpace: (data: { title: string; coverEmoji?: string; coverIcon?: string; coverColor?: string; coverImage?: string; type: string; description?: string }) =>
+  createSpace: (data: { title: string; coverEmoji?: string; coverIcon?: string; coverColor?: string; coverImage?: string; coverImageOffsetX?: number; coverImageOffsetY?: number; coverImageScale?: number; type: string; description?: string }) =>
     request<any>('/spaces', { method: 'POST', body: JSON.stringify(data) }),
 
   joinByCode: (code: string) =>
@@ -171,7 +171,7 @@ export const api = {
   deleteSubstory: (spaceId: string, memoryId: string, substoryId: string) =>
     request<any>(`/spaces/${spaceId}/memories/${memoryId}/substories/${substoryId}`, { method: 'DELETE' }),
 
-  updateSpace: (spaceId: string, data: { title?: string; coverEmoji?: string; coverIcon?: string; coverColor?: string; coverImage?: string; description?: string }) =>
+  updateSpace: (spaceId: string, data: { title?: string; coverEmoji?: string; coverIcon?: string; coverColor?: string; coverImage?: string; coverImageOffsetX?: number; coverImageOffsetY?: number; coverImageScale?: number; description?: string }) =>
     request<any>(`/spaces/${spaceId}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   deleteSpace: (spaceId: string) =>
