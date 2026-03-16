@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MapPin, Plus, Image, BookOpen, Camera, Images, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import React, { useState, useRef, useEffect } from 'react'
 import { Memory, SubStory } from '../types'
+import { sanitizeHtml } from '../utils/sanitize'
 import { uploadMultipleImages } from '../cloudinary'
 import RichTextEditor from './RichTextEditor'
 
@@ -360,7 +361,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
                                     </h4>
                                   )}
                                   {sub.content && (
-                                    <div className="font-sans text-warmDark/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: sub.content }} />
+                                    <div className="font-sans text-warmDark/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.content || '') }} />
                                   )}
                                 </div>
                               )}
@@ -380,7 +381,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
                                       )}
                                     </div>
                                     {sub.caption && (
-                                      <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sub.caption }} />
+                                      <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />
                                     )}
                                   </div>
                                 </div>
@@ -392,7 +393,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
                                   {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
                                   <div className="flex gap-3 items-center">
                                     {sub.caption && (
-                                      <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sub.caption }} />
+                                      <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />
                                     )}
                                     <div className="w-1/2 flex-shrink-0 bg-black/5 rounded-xl overflow-hidden">
                                       {sub.photos && sub.photos.length > 0 ? (
@@ -418,7 +419,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
                                       <Image className="w-10 h-10 text-warmDark/75" />
                                     </div>
                                   )}
-                                  {sub.caption && <div className="font-sans text-sm text-warmDark/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+                                  {sub.caption && <div className="font-sans text-sm text-warmDark/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
                                 </div>
                               )}
 
@@ -426,7 +427,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
                               {sub.type === 'img-bottom' && (
                                 <div>
                                   {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
-                                  {sub.caption && <div className="font-sans text-sm text-warmDark/75 leading-relaxed mb-3" dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+                                  {sub.caption && <div className="font-sans text-sm text-warmDark/75 leading-relaxed mb-3" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
                                   {sub.photos && sub.photos.length > 0 ? (
                                     <img src={sub.photos[0]} alt="" className="w-3/5 rounded-2xl object-contain bg-black/5" />
                                   ) : (
@@ -456,7 +457,7 @@ export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateS
                                       ))}
                                     </div>
                                   )}
-                                  {sub.caption && <div className="font-sans text-sm text-warmDark/90 italic mt-3 leading-relaxed" dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+                                  {sub.caption && <div className="font-sans text-sm text-warmDark/90 italic mt-3 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
                                 </div>
                               )}
 

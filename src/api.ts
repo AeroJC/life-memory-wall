@@ -21,6 +21,12 @@ export function clearToken() {
   localStorage.removeItem('token')
 }
 
+/** Callback invoked on 401 — set by the store to trigger logout */
+let onUnauthorized: (() => void) | null = null
+export function setOnUnauthorized(cb: () => void) {
+  onUnauthorized = cb
+}
+
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -54,6 +60,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
         const err = new Error(body.error || `Request failed: ${res.status}`) as any
         err.status = res.status
         Object.assign(err, body)
+
+        // On 401, clear token and notify store (unless this IS the refresh call)
+        if (res.status === 401 && path !== '/auth/refresh' && path !== '/auth/me') {
+          clearToken()
+          onUnauthorized?.()
+          throw err
+        }
 
         // Retry on 5xx for GET requests
         if (res.status >= 500 && attempt < maxAttempts) {
@@ -108,6 +121,9 @@ export const api = {
 
   getUsers: () =>
     request<any[]>('/auth/users'),
+
+  refreshToken: () =>
+    request<{ token: string }>('/auth/refresh', { method: 'POST' }),
 
   // Spaces
   getSpaces: () =>

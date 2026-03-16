@@ -3,6 +3,7 @@ import React, { Suspense, lazy, useEffect, useRef } from 'react'
 import { useStore } from './store/useStore'
 import LoginPage from './components/LoginPage'
 import { MobileLayout } from './components/MobileLayout'
+import { api, setToken, setOnUnauthorized } from './api'
 
 const SpaceSelector = lazy(() => import('./components/SpaceSelector'))
 const Timeline = lazy(() => import('./components/Timeline'))
@@ -22,12 +23,20 @@ const LoadingFallback = () => (
   </div>
 )
 
-const INACTIVITY_MS = 5 * 60 * 1000 // 5 minutes
+/* Refresh token every 6 hours while the app is active */
+const TOKEN_REFRESH_MS = 6 * 60 * 60 * 1000
 
 export default function App() {
   const { isLoggedIn, initialized, activeSpaceId, init, logout } = useStore()
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const refreshTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const skipNextPush = useRef(false)
+
+  // Wire up 401 interceptor → auto-logout
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      logout()
+    })
+  }, [logout])
 
   // Restore session on mount
   useEffect(() => {
@@ -66,22 +75,33 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [initialized, isLoggedIn])
 
-  // Inactivity auto-logout
+  // Silent token refresh — keeps session alive while user is active
   useEffect(() => {
     if (!isLoggedIn) return
 
-    const reset = () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(logout, INACTIVITY_MS)
+    const refreshToken = async () => {
+      try {
+        const result = await api.refreshToken()
+        setToken(result.token)
+      } catch {
+        // If refresh fails (401/expired), the 401 interceptor handles logout
+      }
     }
 
-    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'] as const
-    events.forEach((e) => window.addEventListener(e, reset))
-    reset()
+    // Refresh on an interval while logged in
+    refreshTimer.current = setInterval(refreshToken, TOKEN_REFRESH_MS)
+
+    // Also refresh when user returns to the app/tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshToken()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-      events.forEach((e) => window.removeEventListener(e, reset))
+      if (refreshTimer.current) clearInterval(refreshTimer.current)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [isLoggedIn])
 

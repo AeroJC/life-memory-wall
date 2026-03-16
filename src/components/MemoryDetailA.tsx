@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MapPin, Plus, Image, BookOpen, Camera, Images, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, MoreHorizontal, Check } from 'lucide-react'
 import React, { useState, useRef, useEffect } from 'react'
 import { Memory, SubStory } from '../types'
+import { sanitizeHtml } from '../utils/sanitize'
 import { uploadMultipleImages } from '../cloudinary'
 import RichTextEditor from './RichTextEditor'
 
@@ -272,7 +273,7 @@ export default function MemoryDetailA({ memory, onClose, onAddSubstory, onUpdate
               <h4 className="font-serif text-lg font-bold text-warmDark mb-2">{sub.title}</h4>
             )}
             {sub.content && (
-              <div className="font-sans text-warmDark/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: sub.content }} />
+              <div className="font-sans text-warmDark/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.content || '') }} />
             )}
           </div>
         )
@@ -297,7 +298,7 @@ export default function MemoryDetailA({ memory, onClose, onAddSubstory, onUpdate
                 )}
               </div>
               {sub.caption && (
-                <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sub.caption }} />
+                <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />
               )}
             </div>
           </div>
@@ -309,7 +310,7 @@ export default function MemoryDetailA({ memory, onClose, onAddSubstory, onUpdate
             {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
             <div className="flex gap-3 items-center">
               {sub.caption && (
-                <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sub.caption }} />
+                <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />
               )}
               <div className="w-1/2 flex-shrink-0 aspect-[4/3] rounded-xl overflow-hidden bg-black/5">
                 {sub.photos && sub.photos.length > 0 ? (
@@ -345,7 +346,7 @@ export default function MemoryDetailA({ memory, onClose, onAddSubstory, onUpdate
                 </div>
               )}
             </div>
-            {sub.caption && <div className="font-sans text-sm text-warmDark/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+            {sub.caption && <div className="font-sans text-sm text-warmDark/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
           </div>
         )
 
@@ -353,7 +354,7 @@ export default function MemoryDetailA({ memory, onClose, onAddSubstory, onUpdate
         return (
           <div>
             {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
-            {sub.caption && <div className="font-sans text-sm text-warmDark/75 leading-relaxed mb-3" dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+            {sub.caption && <div className="font-sans text-sm text-warmDark/75 leading-relaxed mb-3" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
             <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-black/5">
               {sub.photos && sub.photos.length > 0 ? (
                 <img
@@ -395,7 +396,7 @@ export default function MemoryDetailA({ memory, onClose, onAddSubstory, onUpdate
                 ))}
               </div>
             )}
-            {sub.caption && <div className="font-sans text-sm text-warmDark/90 italic mt-3 leading-relaxed" dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+            {sub.caption && <div className="font-sans text-sm text-warmDark/90 italic mt-3 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
           </div>
         )
 

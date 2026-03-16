@@ -6,6 +6,7 @@ import {
   Search, GripVertical, Plus, X,
 } from 'lucide-react'
 import { EditorBlock, CanvasData } from '../types'
+import { sanitizeHtml } from '../utils/sanitize'
 import { uploadMultipleImages, mediumUrl } from '../cloudinary'
 
 /* ── Font catalogue ── */
@@ -430,7 +431,7 @@ export default function MomentEditor({ initialData, onChange }: Props) {
                       textDecoration: block.style?.underline ? 'underline' : 'none',
                       textAlign: block.style?.textAlign || 'left',
                     }}
-                    dangerouslySetInnerHTML={{ __html: block.content || '' }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(block.content || '') }}
                     autoFocus
                   />
                 ) : (

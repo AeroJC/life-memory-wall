@@ -2,6 +2,7 @@ import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { MapPin, Plus, Image, BookOpen, Camera, Images, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, GripHorizontal } from 'lucide-react'
 import React, { useState, useRef, useEffect } from 'react'
 import { Memory, SubStory } from '../types'
+import { sanitizeHtml } from '../utils/sanitize'
 import { uploadMultipleImages } from '../cloudinary'
 import RichTextEditor from './RichTextEditor'
 
@@ -517,7 +518,7 @@ export default function MemoryDetailB({
               <h4 className="font-serif text-lg font-bold text-warmDark mb-2">{sub.title}</h4>
             )}
             {sub.content && (
-              <div className="font-sans text-warmDark/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: sub.content }} />
+              <div className="font-sans text-warmDark/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.content || '') }} />
             )}
           </div>
         )
@@ -543,7 +544,7 @@ export default function MemoryDetailB({
                 )}
               </div>
               {sub.caption && (
-                <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sub.caption }} />
+                <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />
               )}
             </div>
           </div>
@@ -555,7 +556,7 @@ export default function MemoryDetailB({
             {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
             <div className="flex gap-3 items-center">
               {sub.caption && (
-                <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sub.caption }} />
+                <div className={`font-sans text-warmDark/90 flex-1 ${captionFontClass(sub.caption)}`} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />
               )}
               <div className="w-1/2 flex-shrink-0 aspect-[4/3] overflow-hidden rounded-xl">
                 {sub.photos && sub.photos.length > 0 ? (
@@ -593,7 +594,7 @@ export default function MemoryDetailB({
                 </div>
               )}
             </div>
-            {sub.caption && <div className="font-sans text-sm text-warmDark/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+            {sub.caption && <div className="font-sans text-sm text-warmDark/90 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
           </div>
         )
 
@@ -601,7 +602,7 @@ export default function MemoryDetailB({
         return (
           <div className="p-4">
             {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
-            {sub.caption && <div className="font-sans text-sm text-warmDark/75 leading-relaxed mb-3" dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+            {sub.caption && <div className="font-sans text-sm text-warmDark/75 leading-relaxed mb-3" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
             <div className="aspect-[4/3] overflow-hidden rounded-xl">
               {sub.photos && sub.photos.length > 0 ? (
                 <img
@@ -645,7 +646,7 @@ export default function MemoryDetailB({
                 ))}
               </div>
             )}
-            {sub.caption && <div className="font-sans text-sm text-warmDark/90 italic mt-3 leading-relaxed" dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+            {sub.caption && <div className="font-sans text-sm text-warmDark/90 italic mt-3 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
           </div>
         )
 

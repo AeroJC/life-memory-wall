@@ -3,6 +3,7 @@ import { MapPin, Plus, Image, BookOpen, Camera, Images, Upload, Loader2, X, Chev
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 
 import { Memory, SubStory, TextStyle, CanvasData } from '../types'
+import { sanitizeHtml } from '../utils/sanitize'
 import { uploadMultipleImages, thumbnailUrl, mediumUrl, fullUrl } from '../cloudinary'
 import RichTextEditor from './RichTextEditor'
 import ImageCropper from './ImageCropper'
@@ -399,7 +400,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
             <div
               className="font-sans text-warmDark/90 leading-relaxed whitespace-pre-wrap"
               style={textStyleToCss(sub.textStyle)}
-              dangerouslySetInnerHTML={{ __html: sub.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.content || '') }}
             />
           )}
         </div>
@@ -419,7 +420,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
               )}
             </div>
             {sub.caption && (
-              <div className={`font-sans text-warmDark/90 flex-1 whitespace-pre-wrap ${captionFontClass(sub.caption)}`} style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sub.caption }} />
+              <div className={`font-sans text-warmDark/90 flex-1 whitespace-pre-wrap ${captionFontClass(sub.caption)}`} style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />
             )}
           </div>
         </div>
@@ -430,7 +431,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
           {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           <div className="flex gap-3 items-center">
             {sub.caption && (
-              <div className={`font-sans text-warmDark/90 flex-1 whitespace-pre-wrap ${captionFontClass(sub.caption)}`} style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sub.caption }} />
+              <div className={`font-sans text-warmDark/90 flex-1 whitespace-pre-wrap ${captionFontClass(sub.caption)}`} style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />
             )}
             <div className="w-1/2 flex-shrink-0 rounded-xl overflow-hidden">
               {sub.photos && sub.photos.length > 0 ? (
@@ -455,14 +456,14 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
               <Image className="w-10 h-10 text-warmDark/75" />
             </div>
           )}
-          {sub.caption && <div className="font-sans text-sm text-warmDark/90 leading-relaxed whitespace-pre-wrap" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+          {sub.caption && <div className="font-sans text-sm text-warmDark/90 leading-relaxed whitespace-pre-wrap" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
         </div>
       )}
 
       {sub.type === 'img-bottom' && (
         <div>
           {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
-          {sub.caption && <div className="font-sans text-sm text-warmDark/75 leading-relaxed whitespace-pre-wrap mb-3" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+          {sub.caption && <div className="font-sans text-sm text-warmDark/75 leading-relaxed whitespace-pre-wrap mb-3" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
           {sub.photos && sub.photos.length > 0 ? (
             <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-contain bg-black/5 rounded-xl" />
           ) : (
@@ -491,7 +492,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
               ))}
             </div>
           )}
-          {sub.caption && <div className="font-sans text-sm text-warmDark/90 italic mt-3 leading-relaxed whitespace-pre-wrap" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sub.caption }} />}
+          {sub.caption && <div className="font-sans text-sm text-warmDark/90 italic mt-3 leading-relaxed whitespace-pre-wrap" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
         </div>
       )}
 
@@ -1060,7 +1061,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                     {slideshowSlides[slideshowIdx]?.text && (
                       <div
                         className="font-sans text-base text-white/75 leading-relaxed line-clamp-4"
-                        dangerouslySetInnerHTML={{ __html: slideshowSlides[slideshowIdx].text }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(slideshowSlides[slideshowIdx].text) }}
                       />
                     )}
                     <p className="font-handwriting text-sm text-white/50 mt-3">
