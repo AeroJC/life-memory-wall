@@ -31,16 +31,27 @@ html, body {
   height: 100%;
   overflow: auto;
   scroll-behavior: smooth;
+  overscroll-behavior: none;
 }
 
 body {
   font-family: 'DM Sans', system-ui, sans-serif;
   color: #4a3728;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
   height: 100%;
+}
+
+/* Hide scrollbars on native mobile, show subtle ones on web */
+.native-app ::-webkit-scrollbar,
+.native-app ::-webkit-scrollbar-track,
+.native-app ::-webkit-scrollbar-thumb {
+  display: none;
+  width: 0;
+  background: transparent;
 }
 
 ::-webkit-scrollbar {
@@ -58,6 +69,15 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(212, 165, 116, 0.5);
+}
+
+/* Native app optimizations */
+.native-app {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
 }
 
 .gradient-bg {

@@ -107,7 +107,7 @@ Do NOT push code with TypeScript errors. If merge conflicts are resolved, re-run
 ## Backend Specific
 
 - **Always run `prisma generate`** after schema changes.
-- **Add database migrations** for schema changes before deploying.
+- **Always run `prisma db push` or create a migration** after schema changes — the production DB must match the schema. Missing columns will crash queries silently.
 - **Validate request body** on all API routes — never trust client data.
 
 ## Code Conventions
