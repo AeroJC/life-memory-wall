@@ -6,7 +6,7 @@ interface Props {
   onHomeClick: () => void
 }
 
-export default function FloatingNav({ onCreateClick, onHomeClick }: Props) {
+export default function FloatingNav({ onCreateClick, onHomeClick: _onHomeClick }: Props) {
   if (!onCreateClick) return null
 
   return (

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import React, { Suspense, lazy, useEffect, useRef } from 'react'
+import { Suspense, lazy, useEffect, useRef } from 'react'
 import { useStore } from './store/useStore'
 import LoginPage from './components/LoginPage'
 import { MobileLayout } from './components/MobileLayout'

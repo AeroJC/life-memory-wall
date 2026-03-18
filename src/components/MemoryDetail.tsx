@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, Plus, Image, BookOpen, Camera, Images, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import React, { useState, useRef, useEffect } from 'react'
 import { Memory, SubStory } from '../types'
 import { sanitizeHtml } from '../utils/sanitize'
@@ -41,7 +41,7 @@ const storyGradients = [
   'from-indigo-50/30 to-lavender/30',
 ]
 
-export default function MemoryDetail({ memory, onClose, onAddSubstory, onUpdateSubstory, onDeleteSubstory, canEdit = true }: Props) {
+export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory, onUpdateSubstory, onDeleteSubstory, canEdit = true }: Props) {
   const [activeTab, setActiveTab] = useState<'timeline' | 'photos'>('timeline')
   const [showAddForm, setShowAddForm] = useState(false)
   const [addFormStep, setAddFormStep] = useState<'pick' | 'edit'>('pick')

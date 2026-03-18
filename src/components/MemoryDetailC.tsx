@@ -1,10 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, Plus, Image, BookOpen, Camera, Images, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, Check, MoreVertical, Play, Pause, Crop, ArrowLeft } from 'lucide-react'
+import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, MoreVertical, Play, Pause, Crop, ArrowLeft } from 'lucide-react'
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 
 import { Memory, SubStory, TextStyle, CanvasData } from '../types'
 import { sanitizeHtml } from '../utils/sanitize'
-import { uploadMultipleImages, thumbnailUrl, mediumUrl, fullUrl } from '../cloudinary'
+import { uploadMultipleImages, mediumUrl, fullUrl } from '../cloudinary'
 import RichTextEditor from './RichTextEditor'
 import ImageCropper from './ImageCropper'
 import TextStylePanel from './TextStylePanel'
@@ -334,7 +334,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
   )
 
   /** Compact substory card (read-only view) */
-  const CompactCard = ({ sub, idx, gradIdx }: { sub: SubStory; idx: number; gradIdx: number }) => (
+  const CompactCard = ({ sub, idx: _idx, gradIdx }: { sub: SubStory; idx: number; gradIdx: number }) => (
     <div className="relative group/card" onClick={() => setMenuOpenId(menuOpenId === sub.id ? null : sub.id)}>
       {/* Three-dot menu */}
       {canEdit && (

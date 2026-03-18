@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, MapPin, Tag, Upload, Loader2, Images, Lock, Globe, ChevronLeft, ChevronRight, Calendar, Crop } from 'lucide-react'
+import { X, MapPin, Tag, Upload, Loader2, Lock, Globe, ChevronLeft, ChevronRight, Calendar, Crop } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { Memory, SpaceMember } from '../types'
 import { uploadMultipleImages } from '../cloudinary'
@@ -149,7 +149,7 @@ interface Props {
   currentUserId?: string
 }
 
-export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory, spaceType, members, currentUserId }: Props) {
+export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory, spaceType: _spaceType, members, currentUserId }: Props) {
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [story, setStory] = useState('')

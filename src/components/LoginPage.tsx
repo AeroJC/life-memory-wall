@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Mail, Eye, EyeOff, UserPlus, Camera, Heart, Lock, Users, Image, MessageCircle, KeyRound } from 'lucide-react'
+import { ArrowLeft, Mail, Eye, EyeOff, UserPlus, Camera, Heart, Lock, Users, Image, MessageCircle } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { api, setToken } from '../api'
 

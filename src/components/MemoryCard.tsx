@@ -29,7 +29,7 @@ function getEmojiForTag(tag?: string) {
   return tag ? map[tag] || '\u2728' : '\u2728'
 }
 
-export default function MemoryCard({ memory, index, side, onDelete, onReact, onEdit, onCardClick, spaceType, members, canEdit = true }: Props) {
+export default function MemoryCard({ memory, index, side, onDelete, onReact, onEdit, onCardClick, spaceType, members: _members, canEdit = true }: Props) {
   const [showReactions, setShowReactions] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const rotation = side === 'left' ? -1.5 : 1.5
@@ -108,11 +108,11 @@ export default function MemoryCard({ memory, index, side, onDelete, onReact, onE
           </div>
         )}
 
-        {memory.substories && memory.substories.length > 0 && (
+        {(memory.substoryCount ?? (memory.substories ? memory.substories.length : 0)) > 0 && (
           <div className="mt-3 flex items-center gap-1.5 text-warmDark/55">
             <div className="w-5 h-px bg-warmDark/25" />
             <span className="text-base font-handwriting">
-              {memory.substories.length} moments inside — tap to explore
+              {memory.substoryCount ?? memory.substories!.length} moments inside — tap to explore
             </span>
           </div>
         )}

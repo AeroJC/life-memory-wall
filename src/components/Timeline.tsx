@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Users, Check, Copy, Loader2, X, UserMinus, LogOut } from 'lucide-react'
+import { ArrowLeft, Users, Check, Copy, Loader2, UserMinus, LogOut } from 'lucide-react'
 import { SpaceIconRenderer } from './SpaceIcons'
 import { useInView } from 'react-intersection-observer'
 import { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react'

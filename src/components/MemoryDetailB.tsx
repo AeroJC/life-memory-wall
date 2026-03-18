@@ -1,5 +1,5 @@
-import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, GripHorizontal } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import React, { useState, useRef, useEffect } from 'react'
 import { Memory, SubStory } from '../types'
 import { sanitizeHtml } from '../utils/sanitize'
@@ -54,7 +54,7 @@ function SwipeableCard({
   onEdit: () => void
   onDelete: () => void
 }) {
-  const [dragX, setDragX] = useState(0)
+  const [_dragX, setDragX] = useState(0)
   const [isRevealed, setIsRevealed] = useState(false)
   const [hovered, setHovered] = useState(false)
   const ACTION_WIDTH = 140
@@ -360,7 +360,7 @@ function LayoutPicker({
    ═══════════════════════════════════════════════════ */
 export default function MemoryDetailB({
   memory,
-  onClose,
+  onClose: _onClose,
   onAddSubstory,
   onUpdateSubstory,
   onDeleteSubstory,

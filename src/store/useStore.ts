@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { Memory, MemorySpace, SubStory, User, SpaceMember, JoinRequest, PendingInvite } from '../types'
+import { Memory, MemorySpace, SubStory, User, SpaceMember, PendingInvite } from '../types'
 import { api, setToken, clearToken } from '../api'
 
 interface AppState {
@@ -187,7 +187,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchMoreMemories: async () => {
-    const { activeSpaceId, memoryCursor, hasMoreMemories, loadingMore, activeSpaceData } = get()
+    const { activeSpaceId, memoryCursor, hasMoreMemories, loadingMore } = get()
     if (!activeSpaceId || !hasMoreMemories || loadingMore || !memoryCursor) return
 
     set({ loadingMore: true })
@@ -469,3 +469,15 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
 }))
+
+// Fine-grained selectors to avoid unnecessary re-renders
+export const useCurrentUser = () => useStore((s) => s.currentUser)
+export const useIsLoggedIn = () => useStore((s) => s.isLoggedIn)
+export const useSpaces = () => useStore((s) => s.spaces)
+export const useActiveSpaceData = () => useStore((s) => s.activeSpaceData)
+export const useActiveSpaceId = () => useStore((s) => s.activeSpaceId)
+export const useLoading = () => useStore((s) => s.loading)
+export const usePendingInvites = () => useStore((s) => s.pendingInvites)
+export const useHasMoreMemories = () => useStore((s) => s.hasMoreMemories)
+export const useLoadingMore = () => useStore((s) => s.loadingMore)
+export const useInitialized = () => useStore((s) => s.initialized)

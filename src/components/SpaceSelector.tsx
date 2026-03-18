@@ -1,13 +1,13 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, KeyRound, LogOut, UserMinus, ArrowLeft, User, ImagePlus, Copy, Lock, Unlock, UserPlus, Share2, MessageCircle, Smartphone } from 'lucide-react'
+import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, LogOut, UserMinus, ArrowLeft, User, ImagePlus, Copy, Lock, Unlock, UserPlus, Share2, MessageCircle, Smartphone } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { useStore } from '../store/useStore'
 import { api } from '../api'
 import { uploadImage } from '../cloudinary'
 import {
-  spaceIconDefs, iconCategories, iconColors, getIconsByCategory,
-  getIconDef, getIconVariation, makeIconId, getColorClasses,
+  iconCategories, getIconsByCategory,
+  getIconVariation, makeIconId, getColorClasses,
   randomTaglineForIcon, SpaceIconRenderer,
 } from './SpaceIcons'
 import { validatePassword } from '../utils/validation'
@@ -63,7 +63,7 @@ export default function SpaceSelector() {
   const [newCoverImagePosX, setNewCoverImagePosX] = useState(50)
   const [newCoverImagePosY, setNewCoverImagePosY] = useState(50)
   const [newCoverImageScale, setNewCoverImageScale] = useState(1)
-  const [coverImageUploading, setCoverImageUploading] = useState(false)
+  const [coverImageUploading, _setCoverImageUploading] = useState(false)
   const [cropSrc, setCropSrc] = useState<string | null>(null)
   const [cropTarget, setCropTarget] = useState<'create' | 'edit' | null>(null)
   const [cropIsReadjust, setCropIsReadjust] = useState(false)
@@ -104,8 +104,8 @@ export default function SpaceSelector() {
   const [editCoverImagePosX, setEditCoverImagePosX] = useState(50)
   const [editCoverImagePosY, setEditCoverImagePosY] = useState(50)
   const [editCoverImageScale, setEditCoverImageScale] = useState(1)
-  const [editCoverImageUploading, setEditCoverImageUploading] = useState(false)
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [editCoverImageUploading, _setEditCoverImageUploading] = useState(false)
+  const [_deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [deleteConfirmSpace, setDeleteConfirmSpace] = useState<MemorySpace | null>(null)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')

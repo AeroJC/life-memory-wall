@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, MoreHorizontal, Check } from 'lucide-react'
+import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, MoreHorizontal } from 'lucide-react'
 import React, { useState, useRef, useEffect } from 'react'
 import { Memory, SubStory } from '../types'
 import { sanitizeHtml } from '../utils/sanitize'
@@ -81,7 +81,7 @@ const addFormLayoutItems = [
   },
 ]
 
-export default function MemoryDetailA({ memory, onClose, onAddSubstory, onUpdateSubstory, onDeleteSubstory, canEdit = true }: Props) {
+export default function MemoryDetailA({ memory, onClose: _onClose, onAddSubstory, onUpdateSubstory, onDeleteSubstory, canEdit = true }: Props) {
   const [activeTab, setActiveTab] = useState<'timeline' | 'photos'>('timeline')
   const [showAddForm, setShowAddForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -192,7 +192,7 @@ export default function MemoryDetailA({ memory, onClose, onAddSubstory, onUpdate
   // Close menu when clicking outside
   useEffect(() => {
     if (!menuOpenId) return
-    const handler = (e: MouseEvent) => {
+    const handler = (_e: MouseEvent) => {
       setMenuOpenId(null)
       setConfirmDeleteId(null)
     }
