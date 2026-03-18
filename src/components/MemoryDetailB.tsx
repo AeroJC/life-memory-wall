@@ -1,5 +1,5 @@
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { MapPin, Plus, Image, BookOpen, Camera, Images, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, GripHorizontal } from 'lucide-react'
+import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, GripHorizontal } from 'lucide-react'
 import React, { useState, useRef, useEffect } from 'react'
 import { Memory, SubStory } from '../types'
 import { sanitizeHtml } from '../utils/sanitize'
@@ -964,24 +964,14 @@ export default function MemoryDetailB({
                 <span className="text-sm">Uploading...</span>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <button
+              <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-warmMid/10 rounded-xl p-4 flex flex-col items-center gap-1.5 hover:border-gold/25 transition-colors"
+                  className="w-full border-2 border-dashed border-warmMid/10 rounded-xl p-4 flex flex-col items-center gap-1.5 hover:border-gold/25 transition-colors"
                 >
                   <Upload className="w-5 h-5 text-warmDark/70" />
-                  <span className="text-sm text-warmDark/70">From Device</span>
+                  <span className="text-sm text-warmDark/70">Upload photo</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-warmMid/10 rounded-xl p-4 flex flex-col items-center gap-1.5 hover:border-gold/25 transition-colors"
-                >
-                  <Images className="w-5 h-5 text-warmDark/70" />
-                  <span className="text-sm text-warmDark/70">Google Photos</span>
-                </button>
-              </div>
             )}
           </div>
         )}

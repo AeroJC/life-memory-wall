@@ -109,9 +109,9 @@ export default function MemoryCard({ memory, index, side, onDelete, onReact, onE
         )}
 
         {memory.substories && memory.substories.length > 0 && (
-          <div className="mt-3 flex items-center gap-1.5 text-gold/70">
-            <div className="w-4 h-px bg-gold/40" />
-            <span className="text-sm font-handwriting">
+          <div className="mt-3 flex items-center gap-1.5 text-warmDark/55">
+            <div className="w-5 h-px bg-warmDark/25" />
+            <span className="text-base font-handwriting">
               {memory.substories.length} moments inside — tap to explore
             </span>
           </div>

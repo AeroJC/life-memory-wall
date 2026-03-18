@@ -14,6 +14,7 @@ export interface SubStory {
   title?: string
   content?: string
   photos?: string[]
+  photoOriginals?: string[]
   caption?: string
   textStyle?: TextStyle
   titleStyle?: TextStyle

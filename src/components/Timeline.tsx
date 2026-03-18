@@ -79,7 +79,7 @@ export default function Timeline() {
   const sortedMemories = useMemo(
     () => [...visibleMemories].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [space?.id, visibleMemories.length, JSON.stringify(visibleMemories.map(m => m.id + m.date + JSON.stringify(m.reactions || {}) + (m.substories?.length ?? 0)))]
+    [space?.id, visibleMemories.length, JSON.stringify(visibleMemories.map(m => m.id + m.title + m.date + m.story + JSON.stringify(m.photos || []) + (m.location || '') + JSON.stringify(m.tags || []) + JSON.stringify(m.reactions || {}) + (m.substories?.length ?? 0)))]
   )
 
   const timelineStats = useMemo(() => {
@@ -449,8 +449,7 @@ export default function Timeline() {
                 className="flex items-center gap-2 text-warmDark/70 hover:text-warmDark transition-colors cursor-pointer"
                 type="button"
               >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="font-sans text-sm">Spaces</span>
+                <ArrowLeft className="w-5 h-5" />
               </button>
               <div className="text-center flex items-center justify-center gap-2">
                 {space.coverIcon ? (
@@ -495,9 +494,9 @@ export default function Timeline() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="text-center px-4 pt-8 pb-4"
+          className="text-center px-4 pt-2 pb-1"
         >
-          <p className="font-handwriting text-2xl text-warmDark/70">
+          <p className="font-handwriting text-xl text-warmDark/70">
             {space.description || 'A collection of precious moments'}
           </p>
           {space.type === 'group' && space.membersList.length > 0 && (
@@ -512,17 +511,17 @@ export default function Timeline() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="flex items-center justify-center gap-6 mt-5"
+              className="flex items-center justify-center gap-6 mt-1.5"
             >
               <div className="flex flex-col items-center gap-0.5">
-                <span className="font-serif text-2xl text-warmDark">{timelineStats.count}</span>
+                <span className="font-serif text-xl text-warmDark">{timelineStats.count}</span>
                 <span className="font-sans text-xs text-warmDark/50 uppercase tracking-wide">
                   {timelineStats.count === 1 ? 'memory' : 'memories'}
                 </span>
               </div>
               <div className="w-px h-8 bg-warmDark/15" />
               <div className="flex flex-col items-center gap-0.5">
-                <span className="font-serif text-2xl text-warmDark">{timelineStats.span}</span>
+                <span className="font-serif text-xl text-warmDark">{timelineStats.span}</span>
                 <span className="font-sans text-xs text-warmDark/50 uppercase tracking-wide">
                   {timelineStats.count === 1 ? 'since ' + timelineStats.firstYear : 'together'}
                 </span>

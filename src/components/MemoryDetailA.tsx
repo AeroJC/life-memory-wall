@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, Plus, Image, BookOpen, Camera, Images, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, MoreHorizontal, Check } from 'lucide-react'
+import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, MoreHorizontal, Check } from 'lucide-react'
 import React, { useState, useRef, useEffect } from 'react'
 import { Memory, SubStory } from '../types'
 import { sanitizeHtml } from '../utils/sanitize'
@@ -457,16 +457,10 @@ export default function MemoryDetailA({ memory, onClose, onAddSubstory, onUpdate
           )}
           {uploading
             ? <div className="flex items-center justify-center gap-2 text-warmDark/75 py-2"><Loader2 className="w-4 h-4 animate-spin" /><span className="text-sm">Uploading...</span></div>
-            : <div className="grid grid-cols-2 gap-1.5">
-                <button type="button" onClick={() => editFileInputRef.current?.click()}
-                  className="border border-dashed border-warmMid/15 rounded-xl p-2.5 flex items-center justify-center gap-1.5 hover:border-gold/25 transition-colors">
-                  <Upload className="w-3.5 h-3.5 text-warmDark/70" /><span className="text-sm text-warmDark/70">From Device</span>
+            : <button type="button" onClick={() => editFileInputRef.current?.click()}
+                  className="w-full border border-dashed border-warmMid/15 rounded-xl p-2.5 flex items-center justify-center gap-1.5 hover:border-gold/25 transition-colors">
+                  <Upload className="w-3.5 h-3.5 text-warmDark/70" /><span className="text-sm text-warmDark/70">Upload photo</span>
                 </button>
-                <button type="button" onClick={() => editFileInputRef.current?.click()}
-                  className="border border-dashed border-warmMid/15 rounded-xl p-2.5 flex items-center justify-center gap-1.5 hover:border-gold/25 transition-colors">
-                  <Images className="w-3.5 h-3.5 text-warmDark/70" /><span className="text-sm text-warmDark/70">Google Photos</span>
-                </button>
-              </div>
           }
         </div>
       )}
@@ -812,18 +806,11 @@ export default function MemoryDetailA({ memory, onClose, onAddSubstory, onUpdate
                             <span className="text-sm">Uploading...</span>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-2 gap-2">
-                            <button type="button" onClick={() => fileInputRef.current?.click()}
-                              className="border-2 border-dashed border-warmMid/10 rounded-xl p-4 flex flex-col items-center gap-1.5 hover:border-gold/25 transition-colors">
+                          <button type="button" onClick={() => fileInputRef.current?.click()}
+                              className="w-full border-2 border-dashed border-warmMid/10 rounded-xl p-4 flex flex-col items-center gap-1.5 hover:border-gold/25 transition-colors">
                               <Upload className="w-5 h-5 text-warmDark/70" />
-                              <span className="text-sm text-warmDark/70">From Device</span>
-                            </button>
-                            <button type="button" onClick={() => fileInputRef.current?.click()}
-                              className="border-2 border-dashed border-warmMid/10 rounded-xl p-4 flex flex-col items-center gap-1.5 hover:border-gold/25 transition-colors">
-                              <Images className="w-5 h-5 text-warmDark/70" />
-                              <span className="text-sm text-warmDark/70">Google Photos</span>
-                            </button>
-                          </div>
+                              <span className="text-sm text-warmDark/70">Upload photo</span>
+                          </button>
                         )}
                       </div>
                     )}

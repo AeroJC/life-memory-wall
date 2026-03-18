@@ -103,9 +103,11 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
   const [editTitleStyle, setEditTitleStyle] = useState<TextStyle>({})
   const [styleTarget, setStyleTarget] = useState<'title' | 'content'>('content')
   const [editPhotos, setEditPhotos] = useState<string[]>([])
+  const [editPhotoOriginals, setEditPhotoOriginals] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
-  const [cropSrc, setCropSrc] = useState<string | null>(null)       // image URL being cropped
-  const [cropIndex, setCropIndex] = useState<number | null>(null)    // index in editPhotos to replace
+  const [cropSrc, setCropSrc] = useState<string | null>(null)       // original image URL for cropping
+  const [cropIndex, setCropIndex] = useState<number | null>(null)    // index in editPhotos to crop
+  const [coverExpanded, setCoverExpanded] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const editFileInputRef = useRef<HTMLInputElement>(null)
@@ -117,6 +119,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
     try {
       const urls = await uploadMultipleImages(files)
       setter((prev) => [...prev, ...urls])
+      setEditPhotoOriginals((prev) => [...prev, ...urls])
     } catch { alert('Upload failed') }
     finally {
       setUploading(false)
@@ -137,7 +140,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
 
   /* ── Reset / start helpers ── */
   const resetEdit = () => {
-    setEditTitle(''); setEditContent(''); setEditPhotos([])
+    setEditTitle(''); setEditContent(''); setEditPhotos([]); setEditPhotoOriginals([])
     setEditType('text'); setExpandedId(null); setShowAddForm(false)
     setCropSrc(null); setCropIndex(null)
     setMenuOpenId(null); setDeleteConfirmId(null)
@@ -151,6 +154,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
     setEditContent(sub.content || sub.caption || '')
     setEditType(sub.type)
     setEditPhotos(sub.photos || [])
+    setEditPhotoOriginals(sub.photoOriginals || sub.photos || [])
     setEditTextStyle(sub.textStyle || {})
     setEditTitleStyle(sub.titleStyle || {})
     setStyleTarget('content')
@@ -162,7 +166,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
   const startAdd = () => {
     setShowAddForm(true)
     setExpandedId(null)
-    setEditTitle(''); setEditContent(''); setEditPhotos([])
+    setEditTitle(''); setEditContent(''); setEditPhotos([]); setEditPhotoOriginals([])
     setEditType('text'); setEditTextStyle({}); setEditTitleStyle({}); setStyleTarget('content')
   }
 
@@ -198,6 +202,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
       content: editType === 'text' ? editContent : undefined,
       caption: editType !== 'text' ? editContent : undefined,
       photos: editType !== 'text' ? editPhotos : undefined,
+      photoOriginals: editType !== 'text' && editPhotoOriginals.length > 0 ? editPhotoOriginals : undefined,
       textStyle: Object.keys(editTextStyle).length > 0 ? editTextStyle : undefined,
       titleStyle: Object.keys(editTitleStyle).length > 0 ? editTitleStyle : undefined,
     }
@@ -330,13 +335,13 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
 
   /** Compact substory card (read-only view) */
   const CompactCard = ({ sub, idx, gradIdx }: { sub: SubStory; idx: number; gradIdx: number }) => (
-    <div className="relative group/card">
+    <div className="relative group/card" onClick={() => setMenuOpenId(menuOpenId === sub.id ? null : sub.id)}>
       {/* Three-dot menu */}
       {canEdit && (
         <div className="absolute -top-1 right-0 z-10">
           <button
             onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === sub.id ? null : sub.id) }}
-            className="w-7 h-7 rounded-lg bg-white/60 shadow-sm flex items-center justify-center text-warmDark/50 hover:text-warmDark/80 opacity-0 group-hover/card:opacity-100 transition-all"
+            className={`w-7 h-7 rounded-lg bg-white/60 shadow-sm flex items-center justify-center text-warmDark/50 hover:text-warmDark/80 transition-all ${menuOpenId === sub.id ? 'opacity-100' : 'opacity-0 group-hover/card:opacity-100'}`}
           >
             <MoreVertical className="w-4 h-4" />
           </button>
@@ -344,6 +349,8 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
           {/* Dropdown */}
           <AnimatePresence>
             {menuOpenId === sub.id && (
+              <>
+              <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null) }} />
               <motion.div
                 initial={{ opacity: 0, scale: 0.9, y: -4 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -365,6 +372,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                   <Trash2 className="w-3.5 h-3.5" /> Delete
                 </button>
               </motion.div>
+              </>
             )}
           </AnimatePresence>
         </div>
@@ -418,7 +426,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
           <div className="flex gap-3 items-center">
             <div className="w-1/2 flex-shrink-0 rounded-xl overflow-hidden">
               {sub.photos && sub.photos.length > 0 ? (
-                <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-contain bg-black/5 rounded-xl" />
+                <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-cover bg-black/5 rounded-xl" />
               ) : (
                 <div className={`w-full aspect-[4/3] rounded-xl bg-gradient-to-br ${storyGradients[gradIdx % storyGradients.length]} flex items-center justify-center border border-white/40`}>
                   <Image className="w-8 h-8 text-warmDark/75" />
@@ -441,7 +449,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
             )}
             <div className="w-1/2 flex-shrink-0 rounded-xl overflow-hidden">
               {sub.photos && sub.photos.length > 0 ? (
-                <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-contain bg-black/5 rounded-xl" />
+                <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-cover bg-black/5 rounded-xl" />
               ) : (
                 <div className={`w-full aspect-[4/3] rounded-xl bg-gradient-to-br ${storyGradients[gradIdx % storyGradients.length]} flex items-center justify-center border border-white/40`}>
                   <Image className="w-8 h-8 text-warmDark/75" />
@@ -456,7 +464,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
         <div>
           {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           {sub.photos && sub.photos.length > 0 ? (
-            <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-contain bg-black/5 rounded-xl mb-3" />
+            <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-cover bg-black/5 rounded-xl mb-3" />
           ) : (
             <div className={`w-full aspect-[4/3] rounded-xl bg-gradient-to-br ${storyGradients[gradIdx % storyGradients.length]} flex items-center justify-center border border-white/40 mb-3`}>
               <Image className="w-10 h-10 text-warmDark/75" />
@@ -471,7 +479,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
           {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           {sub.caption && <div className="font-sans text-sm text-warmDark/75 leading-relaxed whitespace-pre-wrap mb-3" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
           {sub.photos && sub.photos.length > 0 ? (
-            <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-contain bg-black/5 rounded-xl" />
+            <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-cover bg-black/5 rounded-xl" />
           ) : (
             <div className={`w-full aspect-[4/3] rounded-xl bg-gradient-to-br ${storyGradients[gradIdx % storyGradients.length]} flex items-center justify-center border border-white/40`}>
               <Image className="w-10 h-10 text-warmDark/75" />
@@ -486,7 +494,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
           {sub.photos && sub.photos.length > 0 ? (
             <div className="grid grid-cols-2 gap-2">
               {sub.photos.map((url, n) => (
-                <ClickablePhoto key={n} url={url} className="aspect-square object-contain bg-black/5 rounded-xl w-full" />
+                <ClickablePhoto key={n} url={url} className="aspect-square object-cover bg-black/5 rounded-xl w-full" />
               ))}
             </div>
           ) : (
@@ -526,13 +534,13 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
           <div className={isGrid ? 'grid grid-cols-2 gap-2' : ''}>
             {editPhotos.map((url, pi) => (
               <div key={pi} className="relative group/photo rounded-xl overflow-hidden">
-                <img src={url} alt="" className={`w-full ${isGrid ? 'aspect-square' : 'aspect-[4/3]'} object-contain bg-black/5 rounded-xl`} />
-                <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover/photo:opacity-100 transition-opacity">
-                  <button type="button" onClick={() => { setCropSrc(url); setCropIndex(pi) }}
+                <img src={mediumUrl(url)} alt="" className={`w-full ${isGrid ? 'aspect-square' : 'aspect-[4/3]'} object-cover bg-black/5 rounded-xl`} />
+                <div className="absolute top-1.5 right-1.5 flex gap-1 md:opacity-0 md:group-hover/photo:opacity-100 transition-opacity">
+                  <button type="button" onClick={() => { setCropSrc(editPhotoOriginals[pi] || url); setCropIndex(pi) }}
                     className="w-6 h-6 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors" title="Crop">
                     <Crop className="w-3 h-3 text-white" />
                   </button>
-                  <button type="button" onClick={() => setEditPhotos((p) => p.filter((_, idx) => idx !== pi))}
+                  <button type="button" onClick={() => { setEditPhotos((p) => p.filter((_, idx) => idx !== pi)); setEditPhotoOriginals((p) => p.filter((_, idx) => idx !== pi)) }}
                     className="w-6 h-6 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors" title="Remove">
                     <X className="w-3 h-3 text-white" />
                   </button>
@@ -706,55 +714,75 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
     <div className="h-full overflow-y-auto">
       {/* ── Cover photo ── */}
       {coverPhoto && (
-        <div ref={coverRef} className="relative flex-shrink-0 h-56 overflow-hidden">
-          <img src={mediumUrl(coverPhoto)} alt={memory.title} className="w-full h-full object-cover object-center" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent pointer-events-none" />
-          {/* Back button on cover — mobile only */}
-          <button
-            onClick={onClose}
-            className="md:hidden absolute top-2 left-3 pt-safe flex items-center gap-1 text-white/80 hover:text-white z-10"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span className="font-sans text-sm">Timeline</span>
-          </button>
-          <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
-            <div className="flex items-end justify-between gap-2 mb-1">
-              <div className="min-w-0 flex-1">
-                <h2 className="font-serif text-base text-white leading-snug">{memory.title}</h2>
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <span className="font-handwriting text-sm text-white/75">
-                    {formatDateFull(memory.date)}
-                    {memory.endDate && ` \u2014 ${formatDateFull(memory.endDate)}`}
-                  </span>
-                  {memory.location && (
-                    <span className="flex items-center gap-1 text-white/75 text-sm">
-                      <MapPin className="w-3 h-3" />
-                      {memory.location}
+        <div
+          ref={coverRef}
+          className="relative flex-shrink-0 overflow-hidden cursor-pointer"
+          onClick={() => setCoverExpanded((v) => !v)}
+        >
+          <div className="relative h-56">
+            <img
+              src={mediumUrl(coverPhoto)}
+              alt={memory.title}
+              className="w-full h-full object-cover object-center"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent pointer-events-none" />
+            {/* Back button on cover — mobile only */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onClose() }}
+              className="md:hidden absolute top-2 left-3 pt-safe flex items-center gap-1 text-white/80 hover:text-white z-10"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="font-sans text-sm">Timeline</span>
+            </button>
+            <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
+              <div className="flex items-end justify-between gap-2 mb-1">
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-serif text-base text-white leading-snug">{memory.title}</h2>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className="font-handwriting text-sm text-white/75">
+                      {formatDateFull(memory.date)}
+                      {memory.endDate && ` \u2014 ${formatDateFull(memory.endDate)}`}
                     </span>
-                  )}
+                    {memory.location && (
+                      <span className="flex items-center gap-1 text-white/75 text-sm">
+                        <MapPin className="w-3 h-3" />
+                        {memory.location}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setActiveTab('timeline') }}
+                    title="Stories"
+                    className={`p-1.5 rounded-lg transition-all ${activeTab === 'timeline' ? 'bg-white/25 text-white' : 'text-white/70 hover:text-white'}`}
+                  >
+                    <BookOpen className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setActiveTab('photos') }}
+                    title="Photos"
+                    className={`p-1.5 rounded-lg transition-all ${activeTab === 'photos' ? 'bg-white/25 text-white' : 'text-white/70 hover:text-white'}`}
+                  >
+                    <Camera className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button
-                  onClick={() => setActiveTab('timeline')}
-                  title="Stories"
-                  className={`p-1.5 rounded-lg transition-all ${activeTab === 'timeline' ? 'bg-white/25 text-white' : 'text-white/70 hover:text-white'}`}
-                >
-                  <BookOpen className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setActiveTab('photos')}
-                  title="Photos"
-                  className={`p-1.5 rounded-lg transition-all ${activeTab === 'photos' ? 'bg-white/25 text-white' : 'text-white/70 hover:text-white'}`}
-                >
-                  <Camera className="w-4 h-4" />
-                </button>
-              </div>
+              {memory.story && !coverExpanded && (
+                <p className="font-sans text-sm text-white/65 leading-relaxed line-clamp-1">
+                  {memory.story}
+                </p>
+              )}
             </div>
-            {memory.story && (
-              <p className="font-sans text-sm text-white/65 leading-relaxed line-clamp-2">{memory.story}</p>
-            )}
           </div>
+          {/* Expanded description slides below the cover image */}
+          {memory.story && coverExpanded && (
+            <div className="bg-warmWhite/95 px-4 py-3 border-b border-warmMid/10 transition-all duration-300">
+              <p className="font-sans text-sm text-warmDark/80 leading-relaxed whitespace-pre-wrap">
+                {memory.story}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -830,7 +858,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
       </AnimatePresence>
 
       {/* ── Main content ── */}
-      <div className="px-2 md:px-5 py-4">
+      <div className="px-1 md:px-5 py-4">
         <AnimatePresence mode="wait">
           {activeTab === 'timeline' ? (
             <motion.div
@@ -860,7 +888,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                 /* Timeline with substory cards */
                 <div className="relative">
                   <div
-                    className="absolute left-[7px] md:left-[15px] top-4 bottom-4 w-px bg-gradient-to-b from-gold/25 via-coral/15 to-teal/15"
+                    className="absolute left-[3px] md:left-[15px] top-4 bottom-4 w-px bg-gradient-to-b from-gold/25 via-coral/15 to-teal/15"
                   />
 
                   <div className="space-y-1 md:space-y-3">
@@ -877,7 +905,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                         </div>
 
                         {/* Substory cards */}
-                        <div className="space-y-1 md:space-y-5 ml-1 pl-5 md:ml-4 md:pl-8">
+                        <div className="space-y-2 md:space-y-5 ml-0 pl-3 md:ml-4 md:pl-8">
                           {groupedByDate[date].map((sub, idx) => {
                             const isExpanded = expandedId === sub.id
                             return (
@@ -887,9 +915,10 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: (dateIdx * 0.1) + (idx * 0.06), layout: { duration: 0.3, type: 'spring', stiffness: 300, damping: 30 } }}
-                                className={`relative rounded-2xl p-1.5 md:p-4 transition-all ${
+                                whileTap={!isExpanded ? { scale: 0.98 } : undefined}
+                                className={`relative rounded-2xl p-2 md:p-4 transition-all ${
                                   isExpanded
-                                    ? 'ring-2 ring-gold/40 bg-gold/5 shadow-md'
+                                    ? 'ring-2 ring-gold/50 bg-gold/8 shadow-md'
                                     : 'bg-transparent'
                                 }`}
                               >
@@ -909,7 +938,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                                 )}
 
                                 {/* Separator */}
-                                {!isExpanded && <div className="h-px bg-warmMid/5 mt-2 md:mt-5" />}
+                                {!isExpanded && <div className="h-px bg-warmMid/15 mt-2 md:mt-5" />}
                               </motion.div>
                             )
                           })}
@@ -988,7 +1017,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
       </div>
 
       {/* ── Floating buttons (bottom-right): slideshow + add moment ── */}
-      {!showAddForm && !expandedId && !slideshowActive && (
+      {!showAddForm && !expandedId && !deleteConfirmId && !menuOpenId && !slideshowActive && (
         <motion.div
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -1223,14 +1252,12 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
         )}
       </AnimatePresence>
 
-      {/* ── Image Cropper ── */}
-      {cropSrc && (
+      {/* ── Image Cropper (always opens original, saves cropped URL) ── */}
+      {cropSrc && cropIndex !== null && (
         <ImageCropper
           imageSrc={cropSrc}
           onCropDone={(croppedUrl) => {
-            if (cropIndex !== null) {
-              setEditPhotos((prev) => prev.map((url, i) => i === cropIndex ? croppedUrl : url))
-            }
+            setEditPhotos(prev => prev.map((u, i) => i === cropIndex ? croppedUrl : u))
             setCropSrc(null)
             setCropIndex(null)
           }}

@@ -5,13 +5,39 @@ import { motion } from 'framer-motion'
 import { Check, RotateCw, ZoomIn, ZoomOut, ChevronLeft, Loader2 } from 'lucide-react'
 import { uploadImage } from '../cloudinary'
 
+export interface AspectOption {
+  label: string
+  value: number | undefined
+}
+
+export interface CropAreaResult {
+  cropX: number
+  cropY: number
+  cropW: number
+  cropH: number
+  zoom: number
+  rotation: number
+  aspect: number | undefined
+  naturalW: number
+  naturalH: number
+}
+
 interface Props {
   imageSrc: string
   onCropDone: (croppedUrl: string) => void
   onCancel: () => void
+  aspectOptions?: AspectOption[]
+  defaultAspectIndex?: number
+  /** Coordinate mode: returns crop area data without uploading */
+  coordinateMode?: boolean
+  onCropCoords?: (result: CropAreaResult) => void
+  initialZoom?: number
+  initialRotation?: number
+  initialCrop?: { x: number; y: number }
+  initialAspectIndex?: number
 }
 
-const ASPECT_OPTIONS: { label: string; value: number | undefined }[] = [
+const DEFAULT_ASPECT_OPTIONS: AspectOption[] = [
   { label: 'Free', value: undefined },
   { label: '1:1', value: 1 },
   { label: '4:3', value: 4 / 3 },
@@ -22,7 +48,6 @@ const ASPECT_OPTIONS: { label: string; value: number | undefined }[] = [
 
 /** Create a cropped image file from canvas */
 async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<File> {
-  // Fetch image as blob first to avoid CORS canvas tainting
   const resp = await fetch(imageSrc)
   const imgBlob = await resp.blob()
   const blobUrl = URL.createObjectURL(imgBlob)
@@ -61,22 +86,47 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<File> {
   })
 }
 
-export default function ImageCropper({ imageSrc, onCropDone, onCancel }: Props) {
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [rotation, setRotation] = useState(0)
+export default function ImageCropper({
+  imageSrc, onCropDone, onCancel, aspectOptions, defaultAspectIndex,
+  coordinateMode, onCropCoords, initialZoom, initialRotation, initialCrop, initialAspectIndex,
+}: Props) {
+  const options = aspectOptions || DEFAULT_ASPECT_OPTIONS
+  const [crop, setCrop] = useState(initialCrop ?? { x: 0, y: 0 })
+  const [zoom, setZoom] = useState(initialZoom ?? 1)
+  const [rotation, setRotation] = useState(initialRotation ?? 0)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
   const [processing, setProcessing] = useState(false)
-  const [selectedAspect, setSelectedAspect] = useState(0)
+  const [selectedAspect, setSelectedAspect] = useState(initialAspectIndex ?? defaultAspectIndex ?? 0)
+  const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 })
 
-  const aspect = ASPECT_OPTIONS[selectedAspect].value
+  const aspect = options[selectedAspect].value
 
   const onCropComplete = useCallback((_: Area, croppedPixels: Area) => {
     setCroppedAreaPixels(croppedPixels)
   }, [])
 
+  const onMediaLoaded = useCallback((mediaSize: { naturalWidth: number; naturalHeight: number }) => {
+    setNaturalSize({ w: mediaSize.naturalWidth, h: mediaSize.naturalHeight })
+  }, [])
+
   const handleDone = async () => {
     if (!croppedAreaPixels) return
+
+    if (coordinateMode && onCropCoords) {
+      onCropCoords({
+        cropX: croppedAreaPixels.x,
+        cropY: croppedAreaPixels.y,
+        cropW: croppedAreaPixels.width,
+        cropH: croppedAreaPixels.height,
+        zoom,
+        rotation,
+        aspect,
+        naturalW: naturalSize.w,
+        naturalH: naturalSize.h,
+      })
+      return
+    }
+
     setProcessing(true)
     try {
       const croppedFile = await getCroppedImg(imageSrc, croppedAreaPixels)
@@ -108,6 +158,7 @@ export default function ImageCropper({ imageSrc, onCropDone, onCancel }: Props) 
           onCropChange={setCrop}
           onZoomChange={setZoom}
           onCropComplete={onCropComplete}
+          onMediaLoaded={onMediaLoaded}
           style={{
             containerStyle: { background: '#111' },
             cropAreaStyle: { border: '2px solid rgba(212, 165, 116, 0.7)' },
@@ -120,7 +171,7 @@ export default function ImageCropper({ imageSrc, onCropDone, onCancel }: Props) 
 
         {/* Aspect ratio pills */}
         <div className="flex items-center justify-center gap-2 mb-3">
-          {ASPECT_OPTIONS.map((opt, i) => (
+          {options.map((opt, i) => (
             <button
               key={opt.label}
               onClick={() => { setSelectedAspect(i); setCrop({ x: 0, y: 0 }) }}

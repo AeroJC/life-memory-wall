@@ -1,8 +1,18 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, MapPin, Tag, Upload, Loader2, Images, Lock, Globe, ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
+import { X, MapPin, Tag, Upload, Loader2, Images, Lock, Globe, ChevronLeft, ChevronRight, Calendar, Crop } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { Memory, SpaceMember } from '../types'
 import { uploadMultipleImages } from '../cloudinary'
+import ImageCropper from './ImageCropper'
+import type { AspectOption } from './ImageCropper'
+
+const COVER_ASPECT_OPTIONS: AspectOption[] = [
+  { label: '16:9', value: 16 / 9 },
+  { label: '3:2', value: 3 / 2 },
+  { label: '4:3', value: 4 / 3 },
+  { label: '1:1', value: 1 },
+  { label: 'Free', value: undefined },
+]
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAYS = ['Su','Mo','Tu','We','Th','Fr','Sa']
@@ -149,6 +159,7 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
   const [photos, setPhotos] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [errors, setErrors] = useState<{ title?: string; story?: string }>({})
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFiles = async (files: File[]) => {
@@ -322,19 +333,26 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
                   />
                   {photos.length > 0 ? (
                     <div className="mb-3">
-                      <div className="grid grid-cols-3 gap-2 mb-2">
-                        {photos.slice(0, 1).map((url, i) => (
-                          <div key={i} className="relative group aspect-square rounded-xl overflow-hidden">
-                            <img src={url} alt="" className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))}
-                              className="absolute top-1 right-1 w-6 h-6 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X className="w-3.5 h-3.5 text-white" />
-                            </button>
-                          </div>
-                        ))}
+                      <div className="relative group rounded-xl overflow-hidden mb-2">
+                        <img src={photos[0]} alt="" className="w-full aspect-[16/9] object-cover rounded-xl" />
+                        <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => setCropSrc(photos[0])}
+                            className="w-7 h-7 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
+                            title="Crop"
+                          >
+                            <Crop className="w-3.5 h-3.5 text-white" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPhotos([])}
+                            className="w-7 h-7 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
+                            title="Remove"
+                          >
+                            <X className="w-3.5 h-3.5 text-white" />
+                          </button>
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -351,24 +369,14 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
                       <span className="text-sm">Uploading...</span>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-warmMid/15 rounded-xl p-4 flex flex-col items-center gap-1.5 hover:border-gold/30 transition-colors"
-                      >
-                        <Upload className="w-5 h-5 text-warmDark/75" />
-                        <span className="text-sm text-warmDark/75">From Device</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-warmMid/15 rounded-xl p-4 flex flex-col items-center gap-1.5 hover:border-gold/30 transition-colors"
-                      >
-                        <Images className="w-5 h-5 text-warmDark/75" />
-                        <span className="text-sm text-warmDark/75">Google Photos</span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-warmMid/15 rounded-xl p-4 flex flex-col items-center gap-1.5 hover:border-gold/30 transition-colors"
+                    >
+                      <Upload className="w-5 h-5 text-warmDark/75" />
+                      <span className="text-sm text-warmDark/75">Upload photo</span>
+                    </button>
                   )}
                 </div>
 
@@ -503,6 +511,20 @@ export default function CreateMemoryModal({ isOpen, onClose, onSave, editMemory,
             </div>
           </motion.div>
         </motion.div>
+      )}
+
+      {/* Cover photo cropper */}
+      {cropSrc && (
+        <ImageCropper
+          imageSrc={cropSrc}
+          aspectOptions={COVER_ASPECT_OPTIONS}
+          defaultAspectIndex={0}
+          onCropDone={(croppedUrl) => {
+            setPhotos([croppedUrl])
+            setCropSrc(null)
+          }}
+          onCancel={() => setCropSrc(null)}
+        />
       )}
     </AnimatePresence>
   )

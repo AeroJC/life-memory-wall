@@ -12,7 +12,7 @@ import {
 } from './SpaceIcons'
 import { validatePassword } from '../utils/validation'
 import { MemorySpace } from '../types'
-import ParticleBackground from './ParticleBackground'
+
 import ImageCropModal from './ImageCropModal'
 
 const defaultSpaceColors = [
@@ -391,7 +391,6 @@ export default function SpaceSelector() {
   if (loading) {
     return (
       <div className="min-h-screen gradient-bg flex flex-col items-center justify-center gap-6">
-        <ParticleBackground />
         <div className="relative z-10 flex flex-col items-center gap-6">
           {/* App icon */}
           <div className="relative">
@@ -415,8 +414,6 @@ export default function SpaceSelector() {
 
   return (
     <div className="min-h-screen h-full gradient-bg relative overflow-hidden">
-      <ParticleBackground />
-
       <div className="relative z-10 h-full overflow-y-auto flex flex-col items-center px-4 pt-16 pb-24">
         {/* Top Right Controls */}
         <div className="fixed top-0 right-0 z-30 pr-6 flex items-center gap-3" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 50px)' }}>

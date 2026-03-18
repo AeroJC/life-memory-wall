@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { ArrowLeft, Mail, Eye, EyeOff, UserPlus, Camera, Heart, Lock, Users, Image, MessageCircle, KeyRound } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { api, setToken } from '../api'
-import ParticleBackground from './ParticleBackground'
+
 import { validatePassword } from '../utils/validation'
 
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
@@ -477,8 +477,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen gradient-bg flex items-center justify-center relative overflow-hidden">
-
-      <ParticleBackground />
 
       {/* Logo — top left */}
       <div className="absolute top-8 left-8 z-20">
