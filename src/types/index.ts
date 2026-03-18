@@ -33,6 +33,7 @@ export interface Memory {
   reactions?: Record<string, number>
   comments?: Comment[]
   storylineId?: string
+  substoryCount?: number
   substories?: SubStory[]
   visibleTo?: string[]
   createdBy?: string
@@ -76,7 +77,7 @@ export interface MemorySpace {
   inviteCode?: string
   membersList: SpaceMember[]
   joinRequests?: JoinRequest[]
-  pendingInvites?: any[]
+  pendingInvites?: SpacePendingInvite[]
   description?: string
   memories: Memory[]
 }

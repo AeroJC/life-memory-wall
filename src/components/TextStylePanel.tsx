@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { X, Search, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react'
+import { X, Search, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
 import { TextStyle } from '../types'
 
 /* ── Font catalogue ── */

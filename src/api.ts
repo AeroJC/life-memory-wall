@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core'
+import type { User, MemorySpace, Memory, SubStory, PendingInvite, SpacePendingInvite } from './types'
 
 function getBaseUrl() {
   if (Capacitor.isNativePlatform()) {
@@ -36,7 +37,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const method = (options.method || 'GET').toUpperCase()
   const maxAttempts = method === 'GET' ? 3 : 1
 
-  let lastError: any
+  let lastError: unknown
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const controller = new AbortController()
@@ -108,44 +109,44 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 // Auth
 export const api = {
   me: () =>
-    request<{ user: any }>('/auth/me'),
+    request<{ user: User }>('/auth/me'),
 
   login: (data: { email?: string; phone?: string; name?: string; password?: string }) =>
-    request<{ user: any; token: string }>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+    request<{ user: User; token: string }>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
 
   preSignup: (email: string) =>
     request<{ userId: string }>('/auth/pre-signup', { method: 'POST', body: JSON.stringify({ email }) }),
 
   completeSignup: (userId: string, name: string, password: string) =>
-    request<{ user: any; token: string }>('/auth/complete-signup', { method: 'POST', body: JSON.stringify({ userId, name, password }) }),
+    request<{ user: User; token: string }>('/auth/complete-signup', { method: 'POST', body: JSON.stringify({ userId, name, password }) }),
 
   getUsers: () =>
-    request<any[]>('/auth/users'),
+    request<Pick<User, 'id' | 'name' | 'email' | 'avatar'>[]>('/auth/users'),
 
   refreshToken: () =>
     request<{ token: string }>('/auth/refresh', { method: 'POST' }),
 
   // Spaces
   getSpaces: () =>
-    request<any[]>('/spaces'),
+    request<MemorySpace[]>('/spaces'),
 
   getSpace: (id: string) =>
-    request<any>(`/spaces/${id}`),
+    request<MemorySpace>(`/spaces/${id}`),
 
   getSpacePaginated: (id: string, cursor?: string, limit = 20) =>
-    request<any>(`/spaces/${id}${cursor ? `?cursor=${cursor}&limit=${limit}` : `?limit=${limit}`}`),
+    request<MemorySpace & { nextCursor: string | null; hasMore: boolean }>(`/spaces/${id}${cursor ? `?cursor=${cursor}&limit=${limit}` : `?limit=${limit}`}`),
 
   createSpace: (data: { title: string; coverEmoji?: string; coverIcon?: string; coverColor?: string; coverImage?: string; coverImageOffsetX?: number; coverImageOffsetY?: number; coverImageScale?: number; type: string; description?: string }) =>
-    request<any>('/spaces', { method: 'POST', body: JSON.stringify(data) }),
+    request<MemorySpace>('/spaces', { method: 'POST', body: JSON.stringify(data) }),
 
   joinByCode: (code: string) =>
     request<{ success: boolean; spaceName: string }>('/spaces/join', { method: 'POST', body: JSON.stringify({ code }) }),
 
   approveJoin: (spaceId: string, userId: string) =>
-    request<any>(`/spaces/${spaceId}/approve`, { method: 'POST', body: JSON.stringify({ userId }) }),
+    request<{ success: boolean; member: { userId: string; name: string; role: string; status: string } }>(`/spaces/${spaceId}/approve`, { method: 'POST', body: JSON.stringify({ userId }) }),
 
   rejectJoin: (spaceId: string, userId: string) =>
-    request<any>(`/spaces/${spaceId}/reject`, { method: 'POST', body: JSON.stringify({ userId }) }),
+    request<{ success: boolean }>(`/spaces/${spaceId}/reject`, { method: 'POST', body: JSON.stringify({ userId }) }),
 
   inviteByEmail: (spaceId: string, email: string) =>
     request<{ success: boolean; message: string }>(`/spaces/${spaceId}/invite`, { method: 'POST', body: JSON.stringify({ email }) }),
@@ -154,53 +155,53 @@ export const api = {
     request<{ success: boolean }>(`/spaces/${spaceId}/leave`, { method: 'POST' }),
 
   removeMember: (spaceId: string, userId: string) =>
-    request<any>(`/spaces/${spaceId}/members/${userId}`, { method: 'DELETE' }),
+    request<{ success: boolean }>(`/spaces/${spaceId}/members/${userId}`, { method: 'DELETE' }),
 
   updateMemberRole: (spaceId: string, userId: string, role: string) =>
-    request<any>(`/spaces/${spaceId}/members/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+    request<{ success: boolean }>(`/spaces/${spaceId}/members/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
 
   updateMemberPermission: (spaceId: string, userId: string, permission: 'view' | 'edit') =>
-    request<any>(`/spaces/${spaceId}/members/${userId}`, { method: 'PATCH', body: JSON.stringify({ permission }) }),
+    request<{ success: boolean }>(`/spaces/${spaceId}/members/${userId}`, { method: 'PATCH', body: JSON.stringify({ permission }) }),
 
   // Memories
-  createMemory: (spaceId: string, data: any) =>
-    request<any>(`/spaces/${spaceId}/memories`, { method: 'POST', body: JSON.stringify(data) }),
+  createMemory: (spaceId: string, data: Partial<Memory>) =>
+    request<Memory>(`/spaces/${spaceId}/memories`, { method: 'POST', body: JSON.stringify(data) }),
 
-  updateMemory: (spaceId: string, memoryId: string, data: any) =>
-    request<any>(`/spaces/${spaceId}/memories/${memoryId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  updateMemory: (spaceId: string, memoryId: string, data: Partial<Memory>) =>
+    request<Memory>(`/spaces/${spaceId}/memories/${memoryId}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   deleteMemory: (spaceId: string, memoryId: string) =>
-    request<any>(`/spaces/${spaceId}/memories/${memoryId}`, { method: 'DELETE' }),
+    request<{ success: boolean }>(`/spaces/${spaceId}/memories/${memoryId}`, { method: 'DELETE' }),
 
   addReaction: (spaceId: string, memoryId: string, emoji: string) =>
-    request<any>(`/spaces/${spaceId}/memories/${memoryId}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }),
+    request<{ reactions: Record<string, number> }>(`/spaces/${spaceId}/memories/${memoryId}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }),
 
   getSubstories: (spaceId: string, memoryId: string) =>
-    request<any[]>(`/spaces/${spaceId}/memories/${memoryId}/substories`),
+    request<SubStory[]>(`/spaces/${spaceId}/memories/${memoryId}/substories`),
 
-  addSubstory: (spaceId: string, memoryId: string, data: any) =>
-    request<any>(`/spaces/${spaceId}/memories/${memoryId}/substories`, { method: 'POST', body: JSON.stringify(data) }),
+  addSubstory: (spaceId: string, memoryId: string, data: Partial<SubStory>) =>
+    request<SubStory>(`/spaces/${spaceId}/memories/${memoryId}/substories`, { method: 'POST', body: JSON.stringify(data) }),
 
-  updateSubstory: (spaceId: string, memoryId: string, substoryId: string, data: any) =>
-    request<any>(`/spaces/${spaceId}/memories/${memoryId}/substories/${substoryId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  updateSubstory: (spaceId: string, memoryId: string, substoryId: string, data: Partial<SubStory>) =>
+    request<SubStory>(`/spaces/${spaceId}/memories/${memoryId}/substories/${substoryId}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   deleteSubstory: (spaceId: string, memoryId: string, substoryId: string) =>
-    request<any>(`/spaces/${spaceId}/memories/${memoryId}/substories/${substoryId}`, { method: 'DELETE' }),
+    request<{ success: boolean }>(`/spaces/${spaceId}/memories/${memoryId}/substories/${substoryId}`, { method: 'DELETE' }),
 
   updateSpace: (spaceId: string, data: { title?: string; coverEmoji?: string; coverIcon?: string; coverColor?: string; coverImage?: string; coverImageOffsetX?: number; coverImageOffsetY?: number; coverImageScale?: number; description?: string }) =>
-    request<any>(`/spaces/${spaceId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    request<MemorySpace>(`/spaces/${spaceId}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   deleteSpace: (spaceId: string) =>
-    request<any>(`/spaces/${spaceId}`, { method: 'DELETE' }),
+    request<{ success: boolean }>(`/spaces/${spaceId}`, { method: 'DELETE' }),
 
   updateProfile: (data: { name?: string }) =>
-    request<{ success: boolean; user: any }>('/auth/profile', { method: 'PATCH', body: JSON.stringify(data) }),
+    request<{ success: boolean; user: User }>('/auth/profile', { method: 'PATCH', body: JSON.stringify(data) }),
 
   sendLoginCode: (email: string) =>
     request<{ success: boolean }>('/auth/send-login-code', { method: 'POST', body: JSON.stringify({ email }) }),
 
   loginWithCode: (email: string, code: string) =>
-    request<{ user: any; token: string }>('/auth/login-with-code', { method: 'POST', body: JSON.stringify({ email, code }) }),
+    request<{ user: User; token: string }>('/auth/login-with-code', { method: 'POST', body: JSON.stringify({ email, code }) }),
 
   changePassword: (oldPassword: string, newPassword: string) =>
     request<{ success: boolean }>('/auth/change-password', { method: 'POST', body: JSON.stringify({ oldPassword, newPassword }) }),
@@ -209,7 +210,7 @@ export const api = {
     request<{ success: boolean }>('/auth/send-verification', { method: 'POST', body: JSON.stringify({ userId }) }),
 
   verifyEmail: (userId: string, code: string) =>
-    request<{ user: any; token: string }>('/auth/verify-email', { method: 'POST', body: JSON.stringify({ userId, code }) }),
+    request<{ user: User; token: string }>('/auth/verify-email', { method: 'POST', body: JSON.stringify({ userId, code }) }),
 
   forgotPassword: (email: string) =>
     request<{ success: boolean }>('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
@@ -219,7 +220,7 @@ export const api = {
 
   // Invites — user side
   getMyInvites: () =>
-    request<any[]>('/spaces/my-invites'),
+    request<PendingInvite[]>('/spaces/my-invites'),
 
   acceptInvite: (spaceId: string) =>
     request<{ success: boolean }>(`/spaces/${spaceId}/accept-invite`, { method: 'POST' }),
@@ -229,7 +230,7 @@ export const api = {
 
   // Invites — admin side
   getSpacePendingInvites: (spaceId: string) =>
-    request<any[]>(`/spaces/${spaceId}/pending-invites`),
+    request<SpacePendingInvite[]>(`/spaces/${spaceId}/pending-invites`),
 
   cancelPendingInvite: (spaceId: string, inviteId: string) =>
     request<{ success: boolean }>(`/spaces/${spaceId}/pending-invites/${inviteId}`, { method: 'DELETE' }),

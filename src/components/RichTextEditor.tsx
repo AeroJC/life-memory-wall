@@ -70,7 +70,7 @@ export default function RichTextEditor({ value, onChange, placeholder, className
   const savedRange = useRef<Range | null>(null)
   const [showEmojis, setShowEmojis] = useState(false)
   const [emojiTab, setEmojiTab] = useState('Smileys')
-  const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set())
+  const [_activeFormats, setActiveFormats] = useState<Set<string>>(new Set())
 
   // Set initial HTML once on mount only
   useEffect(() => {
@@ -100,28 +100,6 @@ export default function RichTextEditor({ value, onChange, placeholder, className
     }
   }, [])
 
-  // Restore saved range, then apply execCommand
-  const applyFormat = (e: React.MouseEvent | React.TouchEvent, cmd: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    // Restore the saved selection into the editor
-    editorRef.current?.focus()
-    if (savedRange.current) {
-      const sel = window.getSelection()
-      if (sel) {
-        sel.removeAllRanges()
-        sel.addRange(savedRange.current)
-      }
-    }
-
-    document.execCommand(cmd, false, undefined)
-    onChange(editorRef.current?.innerHTML || '')
-
-    // Re-save updated range and re-check active formats
-    setTimeout(saveRange, 0)
-  }
-
   const insertEmoji = (e: React.MouseEvent | React.TouchEvent | React.PointerEvent, emoji: string) => {
     e.preventDefault()
     editorRef.current?.focus()
@@ -144,8 +122,6 @@ export default function RichTextEditor({ value, onChange, placeholder, className
       onChange(editorRef.current?.innerHTML || '')
     }
   }
-
-  const isActive = (cmd: string) => activeFormats.has(cmd)
 
   const fmtBtn = (active: boolean) =>
     `h-8 rounded-lg flex items-center justify-center transition-all select-none cursor-pointer text-sm ${
