@@ -264,7 +264,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
     // Canvas type moment
     if (editType === 'canvas') {
       if (!canvasDraft || canvasDraft.blocks.length === 0) return
-      const existingSub = substories.find((s) => s.id === expandedId)
+
       const substory: SubStory = {
         id: expandedId || `sub-${Date.now()}`,
         date: editDate,
@@ -300,7 +300,6 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
       finalAudioUrl = editAudioUrl
     }
 
-    const existingSub = substories.find((s) => s.id === expandedId)
     const resolvedType = (mediaMode === 'video' && editVideoUrl) || editType === 'video' ? 'video' : editType
     const substory: SubStory = {
       id: expandedId || `sub-${Date.now()}`,

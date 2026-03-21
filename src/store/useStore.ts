@@ -548,8 +548,8 @@ export const useStore = create<AppState>((set, get) => ({
       if (data?.spaceId) {
         set((state) => ({
           unreadCounts: {
-            total: state.unreadCounts.total - (state.unreadCounts.bySpace[data.spaceId] || 0),
-            bySpace: { ...state.unreadCounts.bySpace, [data.spaceId]: 0 },
+            total: state.unreadCounts.total - (state.unreadCounts.bySpace[data.spaceId!] || 0),
+            bySpace: { ...state.unreadCounts.bySpace, [data.spaceId!]: 0 },
           },
           notifications: state.notifications.map(n =>
             n.spaceId === data.spaceId ? { ...n, read: true } : n
