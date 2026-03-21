@@ -1227,27 +1227,20 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                 </div>
 
               ) : (
-                /* Timeline with substory cards */
+                /* Substory cards */
                 <div className="relative">
-                  <div
-                    className="absolute left-[3px] md:left-[15px] top-4 bottom-4 w-px bg-gradient-to-b from-gold/25 via-coral/15 to-teal/15"
-                  />
-
                   <div className="space-y-1 md:space-y-3">
                     {sortedDates.map((date, dateIdx) => (
                       <div key={date}>
                         {/* Date marker */}
-                        <div className="flex items-center gap-2 md:gap-4 mb-2 md:mb-5 relative">
-                          <div className="w-4 h-4 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-gold/50 to-coral/50 flex items-center justify-center z-10 flex-shrink-0">
-                            <div className="w-1.5 h-1.5 md:w-2.5 md:h-2.5 rounded-full bg-white" />
-                          </div>
-                          <span className="font-handwriting text-xl text-warmDark/75">
+                        <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-4 relative">
+                          <span className="font-handwriting text-xl text-warmDark/75 pl-3 md:pl-4">
                             {formatDate(date)}
                           </span>
                         </div>
 
                         {/* Substory cards */}
-                        <div className="space-y-2 md:space-y-5 ml-0 pl-3 md:ml-4 md:pl-8">
+                        <div className="space-y-3 md:space-y-4 ml-0 pl-3 md:ml-4 md:pl-8">
                           {groupedByDate[date].map((sub, idx) => {
                             const isExpanded = expandedId === sub.id
                             return (
@@ -1258,10 +1251,10 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: (dateIdx * 0.1) + (idx * 0.06), layout: { duration: 0.3, type: 'spring', stiffness: 300, damping: 30 } }}
                                 whileTap={!isExpanded ? { scale: 0.98 } : undefined}
-                                className={`relative rounded-2xl p-2 md:p-4 transition-all ${
+                                className={`relative rounded-2xl p-3 md:p-4 transition-all ${
                                   isExpanded
                                     ? 'ring-2 ring-gold/50 bg-gold/8 shadow-md'
-                                    : 'bg-transparent'
+                                    : 'bg-warmDark/[0.03] border border-warmDark/[0.06] shadow-sm hover:shadow-md hover:bg-warmDark/[0.05]'
                                 }`}
                               >
                                 {/* Card — read-only or inline editable */}
@@ -1278,9 +1271,6 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                                 ) : (
                                   <CompactCard sub={sub} idx={idx} gradIdx={idx} />
                                 )}
-
-                                {/* Separator */}
-                                {!isExpanded && <div className="h-px bg-warmMid/15 mt-2 md:mt-5" />}
                               </motion.div>
                             )
                           })}
