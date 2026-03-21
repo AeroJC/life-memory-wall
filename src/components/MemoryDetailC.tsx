@@ -1,14 +1,18 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, MoreVertical, Play, Pause, Crop, ArrowLeft } from 'lucide-react'
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, MoreVertical, Play, Pause, Crop, ArrowLeft, Mic, Square, Volume2, Video, Download } from 'lucide-react'
+import React, { useState, useRef, useEffect, useCallback, Suspense, lazy } from 'react'
 
+import { Capacitor } from '@capacitor/core'
 import { Memory, SubStory, TextStyle, CanvasData } from '../types'
 import { sanitizeHtml } from '../utils/sanitize'
-import { uploadMultipleImages, mediumUrl, fullUrl } from '../cloudinary'
+import { uploadMultipleImages, uploadAudio, uploadVideo, mediumUrl, fullUrl } from '../cloudinary'
 import RichTextEditor from './RichTextEditor'
 import ImageCropper from './ImageCropper'
 import TextStylePanel from './TextStylePanel'
+import DatePicker from './DatePicker'
 import MomentEditor, { CanvasRenderer } from './MomentEditor'
+
+const MemoryBookExport = lazy(() => import('./MemoryBookExport'))
 
 interface MemberInfo {
   userId: string
@@ -53,6 +57,43 @@ const storyGradients = [
 
 const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').trim()
 
+/* ── Inline audio player for saved moments ── */
+function AudioPlayerInline({ url, className }: { url: string; className?: string }) {
+  const [playing, setPlaying] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!audioRef.current) {
+      audioRef.current = new Audio(url)
+      audioRef.current.onended = () => setPlaying(false)
+    }
+    if (playing) { audioRef.current.pause(); setPlaying(false) }
+    else { audioRef.current.play(); setPlaying(true) }
+  }
+
+  useEffect(() => () => { audioRef.current?.pause() }, [])
+
+  return (
+    <div className={`bg-gradient-to-br from-warmWhite to-peach/20 rounded-xl p-3 border border-warmMid/10 ${className || ''}`} onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-3">
+        <button onClick={toggle} className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-coral flex items-center justify-center shrink-0 shadow-md">
+          {playing ? <Pause className="w-4 h-4 text-white" fill="white" /> : <Play className="w-4 h-4 text-white ml-0.5" fill="white" />}
+        </button>
+        <div className="flex-1">
+          <div className="flex items-center gap-[2px] h-6">
+            {Array.from({ length: 25 }, (_, i) => (
+              <div key={i} className={`w-[3px] rounded-full transition-colors ${playing ? 'bg-gradient-to-t from-gold to-coral' : 'bg-warmMid/25'}`}
+                style={{ height: `${(Math.sin(i * 0.7) * 0.5 + 0.5) * 16 + 4}px` }} />
+            ))}
+          </div>
+        </div>
+        <Volume2 className="w-4 h-4 text-warmDark/25 shrink-0" />
+      </div>
+    </div>
+  )
+}
+
 /* ── Layout picker data (compact row) ── */
 const layoutOptions: { type: SubStory['type']; preview: React.ReactNode }[] = [
   { type: 'text', preview: <div className="flex flex-col gap-0.5 w-full px-0.5"><div className="h-1 bg-warmDark/25 rounded-full"/><div className="h-1 bg-warmDark/15 rounded-full w-4/5"/><div className="h-1 bg-warmDark/15 rounded-full"/></div> },
@@ -61,6 +102,7 @@ const layoutOptions: { type: SubStory['type']; preview: React.ReactNode }[] = [
   { type: 'img-top', preview: <div className="flex flex-col gap-0.5 w-full px-0.5"><div className="h-3.5 bg-lavender/50 rounded w-full"/><div className="h-1 bg-warmDark/20 rounded-full"/><div className="h-1 bg-warmDark/12 rounded-full w-4/5"/></div> },
   { type: 'img-bottom', preview: <div className="flex flex-col gap-0.5 w-full px-0.5"><div className="h-1 bg-warmDark/20 rounded-full"/><div className="h-1 bg-warmDark/12 rounded-full w-4/5"/><div className="h-3.5 bg-teal/30 rounded w-full"/></div> },
   { type: 'photos', preview: <div className="grid grid-cols-2 gap-0.5 w-full px-0.5"><div className="h-2.5 bg-gold/25 rounded"/><div className="h-2.5 bg-coral/25 rounded"/><div className="h-2.5 bg-lavender/35 rounded"/><div className="h-2.5 bg-teal/25 rounded"/></div> },
+  { type: 'video', preview: <div className="w-full h-6 bg-warmMid/5 rounded flex items-center justify-center"><svg className="w-3.5 h-3.5 text-coral/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3" /></svg></div> },
   { type: 'canvas', preview: <div className="relative w-full h-6 bg-warmMid/5 rounded border border-dashed border-warmMid/20"><div className="absolute top-0.5 left-0.5 w-3 h-2 bg-gold/25 rounded-sm"/><div className="absolute bottom-0.5 right-1 w-4 h-1 bg-warmDark/15 rounded-full"/><div className="absolute top-1 right-0.5 w-2.5 h-2.5 bg-coral/20 rounded-sm"/></div> },
 ]
 
@@ -79,6 +121,7 @@ function textStyleToCss(ts?: TextStyle): React.CSSProperties {
 
 export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdateSubstory, onDeleteSubstory, canEdit = true, onEditingChange, members = [] }: Props) {
   const [activeTab, setActiveTab] = useState<'timeline' | 'photos'>('timeline')
+  const [showExport, setShowExport] = useState(false)
 
   /* ── Per-card editing state ── */
   const [expandedId, setExpandedId] = useState<string | null>(null)   // which substory is in edit mode
@@ -96,6 +139,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
   const slideshowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /* ── Edit fields ── */
+  const [editDate, setEditDate] = useState(new Date().toISOString().split('T')[0])
   const [editTitle, setEditTitle] = useState('')
   const [editContent, setEditContent] = useState('')
   const [editType, setEditType] = useState<SubStory['type']>('text')
@@ -109,8 +153,43 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
   const [cropIndex, setCropIndex] = useState<number | null>(null)    // index in editPhotos to crop
   const [coverExpanded, setCoverExpanded] = useState(false)
 
+  /* ── Audio state ── */
+  const [mediaMode, setMediaMode] = useState<'image' | 'audio' | 'video'>('image')
+  const [editAudioUrl, setEditAudioUrl] = useState<string | null>(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
+  const [audioPlaying, setAudioPlaying] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null)
+  const audioFileInputRef = useRef<HTMLInputElement>(null)
+  const [audioUploading, setAudioUploading] = useState(false)
+  const editAudioBlobRef = useRef<Blob | File | null>(null)
+
+  /* ── Video state ── */
+  const [editVideoUrl, setEditVideoUrl] = useState<string>('')
+  const [videoUploading, setVideoUploading] = useState(false)
+  const videoInputRef = useRef<HTMLInputElement>(null)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const editFileInputRef = useRef<HTMLInputElement>(null)
+
+  /* ── Video upload helper ── */
+  const handleVideoUpload = async (files: FileList | null) => {
+    if (!files || !files[0]) return
+    const file = files[0]
+    setVideoUploading(true)
+    try {
+      const url = await uploadVideo(file)
+      setEditVideoUrl(url)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Video upload failed')
+    } finally {
+      setVideoUploading(false)
+      if (videoInputRef.current) videoInputRef.current.value = ''
+    }
+  }
 
   /* ── Photo upload helper ── */
   const handlePhotoFiles = async (files: File[], setter: React.Dispatch<React.SetStateAction<string[]>>, inputRef: React.RefObject<HTMLInputElement>) => {
@@ -141,15 +220,21 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
   /* ── Reset / start helpers ── */
   const resetEdit = () => {
     setEditTitle(''); setEditContent(''); setEditPhotos([]); setEditPhotoOriginals([])
-    setEditType('text'); setExpandedId(null); setShowAddForm(false)
+    setEditType('text'); setExpandedId(null); setShowAddForm(false); setEditDate(new Date().toISOString().split('T')[0])
     setCropSrc(null); setCropIndex(null)
     setMenuOpenId(null); setDeleteConfirmId(null)
     setCanvasDraft(undefined); setEditTextStyle({}); setEditTitleStyle({}); setStyleTarget('content')
+    setMediaMode('image'); setEditAudioUrl(null); setIsRecording(false); setRecordingTime(0); setAudioPlaying(false); setAudioUploading(false)
+    setEditVideoUrl(''); setVideoUploading(false)
+    editAudioBlobRef.current = null
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
     onEditingChange?.(false)
   }
 
   const startEdit = (sub: SubStory) => {
     setExpandedId(sub.id)
+    setEditDate(sub.date || new Date().toISOString().split('T')[0])
     setEditTitle(sub.title || '')
     setEditContent(sub.content || sub.caption || '')
     setEditType(sub.type)
@@ -159,6 +244,9 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
     setEditTitleStyle(sub.titleStyle || {})
     setStyleTarget('content')
     if (sub.type === 'canvas') setCanvasDraft(sub.canvasData)
+    if (sub.videoUrl) { setMediaMode('video'); setEditVideoUrl(sub.videoUrl) }
+    else if (sub.audioUrl) { setMediaMode('audio'); setEditAudioUrl(sub.audioUrl) }
+    else { setMediaMode('image') }
     setMenuOpenId(null)
     onEditingChange?.(true)
   }
@@ -166,19 +254,20 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
   const startAdd = () => {
     setShowAddForm(true)
     setExpandedId(null)
+    setEditDate(new Date().toISOString().split('T')[0])
     setEditTitle(''); setEditContent(''); setEditPhotos([]); setEditPhotoOriginals([])
     setEditType('text'); setEditTextStyle({}); setEditTitleStyle({}); setStyleTarget('content')
   }
 
   /* ── Save ── */
-  const handleSave = () => {
+  const handleSave = async () => {
     // Canvas type moment
     if (editType === 'canvas') {
       if (!canvasDraft || canvasDraft.blocks.length === 0) return
       const existingSub = substories.find((s) => s.id === expandedId)
       const substory: SubStory = {
         id: expandedId || `sub-${Date.now()}`,
-        date: existingSub?.date || new Date().toISOString().split('T')[0],
+        date: editDate,
         type: 'canvas',
         title: editTitle.trim() || undefined,
         canvasData: canvasDraft,
@@ -192,17 +281,38 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
       return
     }
 
-    if (!editTitle.trim() && !stripHtml(editContent)) return
+    if (!editTitle.trim() && !stripHtml(editContent) && !(mediaMode === 'audio' && editAudioUrl) && !(mediaMode === 'video' && editVideoUrl)) return
+
+    // Upload audio to Cloudinary if it's a local blob
+    let finalAudioUrl: string | undefined
+    if (mediaMode === 'audio' && editAudioUrl && editAudioBlobRef.current) {
+      try {
+        setAudioUploading(true)
+        finalAudioUrl = await uploadAudio(editAudioBlobRef.current)
+      } catch (err) {
+        console.error('Audio upload failed:', err)
+        setAudioUploading(false)
+        return
+      }
+      setAudioUploading(false)
+    } else if (mediaMode === 'audio' && editAudioUrl && !editAudioUrl.startsWith('blob:')) {
+      // Already a Cloudinary URL (editing existing)
+      finalAudioUrl = editAudioUrl
+    }
+
     const existingSub = substories.find((s) => s.id === expandedId)
+    const resolvedType = (mediaMode === 'video' && editVideoUrl) || editType === 'video' ? 'video' : editType
     const substory: SubStory = {
       id: expandedId || `sub-${Date.now()}`,
-      date: existingSub?.date || new Date().toISOString().split('T')[0],
-      type: editType,
+      date: editDate,
+      type: resolvedType,
       title: editTitle.trim() || undefined,
-      content: editType === 'text' ? editContent : undefined,
-      caption: editType !== 'text' ? editContent : undefined,
-      photos: editType !== 'text' ? editPhotos : undefined,
-      photoOriginals: editType !== 'text' && editPhotoOriginals.length > 0 ? editPhotoOriginals : undefined,
+      content: resolvedType === 'text' ? editContent : undefined,
+      caption: resolvedType !== 'text' ? editContent : undefined,
+      photos: resolvedType !== 'text' && resolvedType !== 'video' && mediaMode === 'image' ? editPhotos : undefined,
+      photoOriginals: resolvedType !== 'text' && resolvedType !== 'video' && mediaMode === 'image' && editPhotoOriginals.length > 0 ? editPhotoOriginals : undefined,
+      audioUrl: finalAudioUrl,
+      videoUrl: resolvedType === 'video' ? editVideoUrl : undefined,
       textStyle: Object.keys(editTextStyle).length > 0 ? editTextStyle : undefined,
       titleStyle: Object.keys(editTitleStyle).length > 0 ? editTitleStyle : undefined,
     }
@@ -211,6 +321,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
     } else {
       onAddSubstory(memory.id, substory)
     }
+    editAudioBlobRef.current = null
     resetEdit()
   }
 
@@ -407,7 +518,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
       </AnimatePresence>
 
       {/* Card content based on type */}
-      {sub.type === 'text' && (
+      {sub.type === 'text' && !sub.videoUrl && (
         <div>
           {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-2" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           {sub.content && (
@@ -420,12 +531,14 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
         </div>
       )}
 
-      {(sub.type === 'img-left' || sub.type === 'photo') && (
+      {(sub.type === 'img-left' || sub.type === 'photo') && !sub.videoUrl && (
         <div>
           {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           <div className="flex gap-3 items-center">
             <div className="w-1/2 flex-shrink-0 rounded-xl overflow-hidden">
-              {sub.photos && sub.photos.length > 0 ? (
+              {sub.audioUrl ? (
+                <AudioPlayerInline url={sub.audioUrl} />
+              ) : sub.photos && sub.photos.length > 0 ? (
                 <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-cover bg-black/5 rounded-xl" />
               ) : (
                 <div className={`w-full aspect-[4/3] rounded-xl bg-gradient-to-br ${storyGradients[gradIdx % storyGradients.length]} flex items-center justify-center border border-white/40`}>
@@ -440,7 +553,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
         </div>
       )}
 
-      {sub.type === 'img-right' && (
+      {sub.type === 'img-right' && !sub.videoUrl && (
         <div>
           {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           <div className="flex gap-3 items-center">
@@ -448,7 +561,9 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
               <div className={`font-sans text-warmDark/90 flex-1 whitespace-pre-wrap ${captionFontClass(sub.caption)}`} style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />
             )}
             <div className="w-1/2 flex-shrink-0 rounded-xl overflow-hidden">
-              {sub.photos && sub.photos.length > 0 ? (
+              {sub.audioUrl ? (
+                <AudioPlayerInline url={sub.audioUrl} />
+              ) : sub.photos && sub.photos.length > 0 ? (
                 <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-cover bg-black/5 rounded-xl" />
               ) : (
                 <div className={`w-full aspect-[4/3] rounded-xl bg-gradient-to-br ${storyGradients[gradIdx % storyGradients.length]} flex items-center justify-center border border-white/40`}>
@@ -460,10 +575,12 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
         </div>
       )}
 
-      {sub.type === 'img-top' && (
+      {sub.type === 'img-top' && !sub.videoUrl && (
         <div>
           {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
-          {sub.photos && sub.photos.length > 0 ? (
+          {sub.audioUrl ? (
+            <AudioPlayerInline url={sub.audioUrl} className="mb-3" />
+          ) : sub.photos && sub.photos.length > 0 ? (
             <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-cover bg-black/5 rounded-xl mb-3" />
           ) : (
             <div className={`w-full aspect-[4/3] rounded-xl bg-gradient-to-br ${storyGradients[gradIdx % storyGradients.length]} flex items-center justify-center border border-white/40 mb-3`}>
@@ -474,11 +591,13 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
         </div>
       )}
 
-      {sub.type === 'img-bottom' && (
+      {sub.type === 'img-bottom' && !sub.videoUrl && (
         <div>
           {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           {sub.caption && <div className="font-sans text-sm text-warmDark/75 leading-relaxed whitespace-pre-wrap mb-3" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
-          {sub.photos && sub.photos.length > 0 ? (
+          {sub.audioUrl ? (
+            <AudioPlayerInline url={sub.audioUrl} />
+          ) : sub.photos && sub.photos.length > 0 ? (
             <ClickablePhoto url={sub.photos[0]} className="w-full aspect-[4/3] object-cover bg-black/5 rounded-xl" />
           ) : (
             <div className={`w-full aspect-[4/3] rounded-xl bg-gradient-to-br ${storyGradients[gradIdx % storyGradients.length]} flex items-center justify-center border border-white/40`}>
@@ -488,7 +607,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
         </div>
       )}
 
-      {sub.type === 'photos' && (
+      {sub.type === 'photos' && !sub.videoUrl && (
         <div>
           {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
           {sub.photos && sub.photos.length > 0 ? (
@@ -507,6 +626,22 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
             </div>
           )}
           {sub.caption && <div className="font-sans text-sm text-warmDark/90 italic mt-3 leading-relaxed whitespace-pre-wrap" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
+        </div>
+      )}
+
+      {(sub.type === 'video' || (sub.type !== 'canvas' && sub.videoUrl)) && (
+        <div>
+          {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3" style={textStyleToCss(sub.titleStyle)}>{sub.title}</h4>}
+          {sub.videoUrl ? (
+            <div className="rounded-xl overflow-hidden bg-black/5">
+              <video src={sub.videoUrl} controls playsInline preload="metadata" className="w-full rounded-xl" style={{ maxHeight: '300px' }} />
+            </div>
+          ) : (
+            <div className={`w-full aspect-video rounded-xl bg-gradient-to-br ${storyGradients[gradIdx % storyGradients.length]} flex items-center justify-center border border-white/40`}>
+              <Video className="w-10 h-10 text-warmDark/75" />
+            </div>
+          )}
+          {(sub.caption || sub.content) && <div className="font-sans text-sm text-warmDark/90 mt-3 leading-relaxed whitespace-pre-wrap" style={textStyleToCss(sub.textStyle)} dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || sub.content || '') }} />}
         </div>
       )}
 
@@ -569,6 +704,189 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
     )
   }
 
+  /* ── Audio helpers ── */
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      audioChunksRef.current = []
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
+      recorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop())
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        editAudioBlobRef.current = blob
+        const url = URL.createObjectURL(blob)
+        setEditAudioUrl(url)
+        setIsRecording(false)
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
+      }
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      setIsRecording(true)
+      setRecordingTime(0)
+      recordingTimerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000)
+    } catch {
+      // Permission denied or no microphone
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
+  }
+
+  const toggleAudioPlayback = () => {
+    if (!editAudioUrl) return
+    if (!audioPlayerRef.current) {
+      audioPlayerRef.current = new Audio(editAudioUrl)
+      audioPlayerRef.current.onended = () => setAudioPlaying(false)
+    }
+    if (audioPlaying) {
+      audioPlayerRef.current.pause()
+      setAudioPlaying(false)
+    } else {
+      audioPlayerRef.current.src = editAudioUrl
+      audioPlayerRef.current.play()
+      setAudioPlaying(true)
+    }
+  }
+
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`
+
+  /* ── Inline audio zone — replaces photo zone when mediaMode is 'audio' ── */
+  const renderInlineAudioZone = (className?: string) => (
+    <div className={className}>
+      {audioUploading ? (
+        <div className="bg-gradient-to-br from-warmWhite to-peach/20 rounded-xl p-4 border border-warmMid/10 flex items-center justify-center gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-coral" />
+          <span className="text-sm text-warmDark/60 font-sans">Uploading audio...</span>
+        </div>
+      ) : editAudioUrl ? (
+        <div className="bg-gradient-to-br from-warmWhite to-peach/20 rounded-xl p-3 border border-warmMid/10">
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={toggleAudioPlayback}
+              className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-coral flex items-center justify-center shrink-0 shadow-md">
+              {audioPlaying ? <Pause className="w-4 h-4 text-white" fill="white" /> : <Play className="w-4 h-4 text-white ml-0.5" fill="white" />}
+            </button>
+            <div className="flex-1">
+              <div className="flex items-center gap-[2px] h-6">
+                {Array.from({ length: 25 }, (_, i) => (
+                  <div key={i} className={`w-[3px] rounded-full ${audioPlaying ? 'bg-gradient-to-t from-gold to-coral animate-pulse' : 'bg-warmMid/25'}`}
+                    style={{ height: `${(Math.sin(i * 0.7) * 0.5 + 0.5) * 16 + 4}px`, animationDelay: `${i * 50}ms` }} />
+                ))}
+              </div>
+              <p className="text-[10px] text-warmDark/40 font-mono mt-1">Voice note recorded</p>
+            </div>
+            <button type="button" onClick={() => { setEditAudioUrl(null); setAudioPlaying(false); if (audioPlayerRef.current) { audioPlayerRef.current.pause(); audioPlayerRef.current = null } }}
+              className="w-6 h-6 bg-black/10 rounded-full flex items-center justify-center hover:bg-black/20 transition-colors" title="Remove">
+              <X className="w-3 h-3 text-warmDark/60" />
+            </button>
+          </div>
+        </div>
+      ) : isRecording ? (
+        <div className="bg-gradient-to-br from-coral/5 to-red-50 rounded-xl p-3 border border-coral/20 flex items-center gap-3">
+          <div className="relative shrink-0">
+            <div className="w-10 h-10 rounded-full bg-coral/10 flex items-center justify-center animate-pulse">
+              <Mic className="w-5 h-5 text-coral" />
+            </div>
+          </div>
+          <div className="flex-1">
+            <span className="text-sm font-mono text-coral font-semibold">{formatTime(recordingTime)}</span>
+            <p className="text-[10px] text-warmDark/40">Recording...</p>
+          </div>
+          <button type="button" onClick={stopRecording}
+            className="w-9 h-9 rounded-full bg-coral flex items-center justify-center shadow-md hover:bg-coral/90 transition-colors shrink-0">
+            <Square className="w-3.5 h-3.5 text-white" fill="white" />
+          </button>
+        </div>
+      ) : (
+        <div className="w-full border-2 border-dashed border-warmMid/20 rounded-xl flex flex-col items-center justify-center gap-2 py-4">
+          <input ref={audioFileInputRef} type="file" accept="audio/*" className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) {
+                editAudioBlobRef.current = file
+                const url = URL.createObjectURL(file)
+                setEditAudioUrl(url)
+              }
+              e.target.value = ''
+            }} />
+          <div className="flex items-center gap-4">
+            <button type="button" onClick={startRecording}
+              className="flex flex-col items-center gap-1.5 group">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-coral/15 to-gold/10 flex items-center justify-center group-hover:from-coral/25 group-hover:to-gold/20 transition-colors">
+                <Mic className="w-5 h-5 text-coral/60" />
+              </div>
+              <span className="text-[10px] text-warmDark/40 font-sans">Record</span>
+            </button>
+            <div className="w-px h-8 bg-warmMid/15" />
+            <button type="button" onClick={() => audioFileInputRef.current?.click()}
+              className="flex flex-col items-center gap-1.5 group">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/10 to-lavender/15 flex items-center justify-center group-hover:from-gold/20 group-hover:to-lavender/25 transition-colors">
+                <Upload className="w-4 h-4 text-gold/60" />
+              </div>
+              <span className="text-[10px] text-warmDark/40 font-sans">Upload</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  /* ── Media mode toggle (image / audio) — video is only via layout picker ── */
+  const renderMediaToggle = () => (
+    <div className="flex items-center gap-1 mb-2">
+      <button type="button" onClick={() => setMediaMode('image')}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-sans transition-all ${mediaMode === 'image' ? 'bg-gold/15 text-gold border border-gold/30 font-semibold' : 'text-warmDark/40 hover:text-warmDark/60'}`}>
+        <Camera className="w-3.5 h-3.5" /> Photo
+      </button>
+      <button type="button" onClick={() => setMediaMode('audio')}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-sans transition-all ${mediaMode === 'audio' ? 'bg-coral/15 text-coral border border-coral/30 font-semibold' : 'text-warmDark/40 hover:text-warmDark/60'}`}>
+        <Mic className="w-3.5 h-3.5" /> Audio
+      </button>
+    </div>
+  )
+
+  /* ── Inline video zone ── */
+  const renderInlineVideoZone = () => (
+    <div>
+      <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska"
+        className="hidden" onChange={(e) => handleVideoUpload(e.target.files)} />
+      {editVideoUrl ? (
+        <div className="relative group rounded-xl overflow-hidden bg-black/5">
+          <video src={editVideoUrl} controls playsInline preload="metadata" className="w-full rounded-xl" style={{ maxHeight: '250px' }} />
+          <button type="button" onClick={() => setEditVideoUrl('')}
+            className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <X className="w-3.5 h-3.5 text-white" />
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => videoInputRef.current?.click()} disabled={videoUploading}
+          className="w-full h-32 border-2 border-dashed border-warmMid/20 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-gold/40 hover:bg-gold/5 transition-all disabled:opacity-50">
+          {videoUploading ? (
+            <>
+              <Loader2 className="w-7 h-7 animate-spin text-warmDark/40" />
+              <span className="text-xs text-warmDark/50">Uploading video...</span>
+            </>
+          ) : (
+            <>
+              <Video className="w-7 h-7 text-warmDark/30" />
+              <span className="text-xs text-warmDark/50">Choose a video</span>
+              <span className="text-[10px] text-warmDark/30">MP4, WebM, MOV — max 100 MB</span>
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  )
+
+  /* ── Combined media zone — shows toggle + either photo, audio, or video zone ── */
+  const renderMediaZone = (inputRef: React.RefObject<HTMLInputElement>, isGrid?: boolean, className?: string) => (
+    <div className={className}>
+      {renderMediaToggle()}
+      {mediaMode === 'image' ? renderInlinePhotoZone(inputRef, isGrid) : mediaMode === 'audio' ? renderInlineAudioZone() : renderInlineVideoZone()}
+    </div>
+  )
+
   /* ── Inline editable title ── */
   const editableTitle = (
     <input
@@ -613,7 +931,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
           <div>
             {editableTitle}
             <div className="flex gap-3 items-start">
-              {renderInlinePhotoZone(inputRef, false, 'w-1/2 flex-shrink-0')}
+              {renderMediaZone(inputRef, false, 'w-1/2 flex-shrink-0')}
               <div className="flex-1">
                 {renderEditableContent('Caption...')}
               </div>
@@ -628,7 +946,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
               <div className="flex-1">
                 {renderEditableContent('Caption...')}
               </div>
-              {renderInlinePhotoZone(inputRef, false, 'w-1/2 flex-shrink-0')}
+              {renderMediaZone(inputRef, false, 'w-1/2 flex-shrink-0')}
             </div>
           </div>
         )}
@@ -636,7 +954,7 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
         {editType === 'img-top' && (
           <div>
             {editableTitle}
-            {renderInlinePhotoZone(inputRef, false, 'mb-3')}
+            {renderMediaZone(inputRef, false, 'mb-3')}
             {renderEditableContent('Caption...')}
           </div>
         )}
@@ -645,15 +963,23 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
           <div>
             {editableTitle}
             {renderEditableContent('Caption...')}
-            {renderInlinePhotoZone(inputRef, false, 'mt-3')}
+            {renderMediaZone(inputRef, false, 'mt-3')}
           </div>
         )}
 
         {editType === 'photos' && (
           <div>
             {editableTitle}
-            {renderInlinePhotoZone(inputRef, true, 'mb-3')}
+            {renderMediaZone(inputRef, true, 'mb-3')}
             {renderEditableContent('Caption...')}
+          </div>
+        )}
+
+        {editType === 'video' && (
+          <div>
+            {editableTitle}
+            {renderInlineVideoZone()}
+            <div className="mt-3">{renderEditableContent('Caption (optional)...')}</div>
           </div>
         )}
 
@@ -673,12 +999,12 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
       {/* Layout picker */}
       <div className="flex items-center gap-1.5">
         <span className="font-sans text-[10px] text-warmDark/35 uppercase tracking-wider mr-1">Layout</span>
-        {layoutOptions.map(({ type, preview }) => (
+        {layoutOptions.filter(o => !(o.type === 'canvas' && (Capacitor.isNativePlatform() || window.matchMedia('(max-width: 768px)').matches))).map(({ type, preview }) => (
           <button
             key={type}
-            onClick={() => { setEditType(type); if (type === 'canvas' && !canvasDraft) setCanvasDraft({ width: 480, height: 220, background: '#fffbf5', blocks: [] }) }}
+            onClick={() => { setEditType(type); if (type === 'video') setMediaMode('video'); else if (type === 'canvas' && !canvasDraft) setCanvasDraft({ width: 480, height: 220, background: '#fffbf5', blocks: [] }) }}
             className={`p-1.5 rounded-lg border transition-all ${editType === type ? 'border-gold/50 bg-gold/10 ring-1 ring-gold/25' : 'border-warmMid/10 hover:border-warmMid/20'}`}
-            title={type === 'text' ? 'Text' : type === 'img-left' ? 'Left' : type === 'img-right' ? 'Right' : type === 'img-top' ? 'Top' : type === 'img-bottom' ? 'Bottom' : type === 'photos' ? 'Grid' : 'Canvas'}
+            title={type === 'text' ? 'Text' : type === 'img-left' ? 'Left' : type === 'img-right' ? 'Right' : type === 'img-top' ? 'Top' : type === 'img-bottom' ? 'Bottom' : type === 'photos' ? 'Grid' : type === 'video' ? 'Video' : 'Canvas'}
           >
             <div className="w-6 h-5 flex items-center justify-center">{preview}</div>
           </button>
@@ -696,14 +1022,17 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
         />
       )}
 
-      {/* Save / Cancel */}
-      <div className="flex gap-2 pt-1">
-        <button onClick={resetEdit} className="flex-1 py-2 rounded-xl text-sm text-warmDark/75 hover:bg-white/30 transition-all">
-          Cancel
-        </button>
-        <button onClick={handleSave} className="flex-1 py-2 rounded-xl text-sm bg-gradient-to-r from-gold/80 to-coral/70 text-white font-medium hover:from-gold to-coral transition-all">
-          {isNew ? 'Add moment' : 'Save'}
-        </button>
+      {/* Date picker + Save / Cancel */}
+      <div className="flex items-center gap-2 pt-1">
+        <DatePicker value={editDate} onChange={setEditDate} compact />
+        <div className="flex gap-2 flex-1">
+          <button onClick={resetEdit} className="flex-1 py-2 rounded-xl text-sm text-warmDark/75 hover:bg-white/30 transition-all">
+            Cancel
+          </button>
+          <button onClick={handleSave} className="flex-1 py-2 rounded-xl text-sm bg-gradient-to-r from-gold/80 to-coral/70 text-white font-medium hover:from-gold to-coral transition-all">
+            {isNew ? 'Add moment' : 'Save'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -765,6 +1094,13 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                     className={`p-1.5 rounded-lg transition-all ${activeTab === 'photos' ? 'bg-white/25 text-white' : 'text-white/70 hover:text-white'}`}
                   >
                     <Camera className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowExport(true) }}
+                    title="Export as PDF"
+                    className="p-1.5 rounded-lg transition-all text-white/70 hover:text-white"
+                  >
+                    <Download className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -850,6 +1186,13 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
                   className={`p-1.5 rounded-lg transition-all ${activeTab === 'photos' ? 'bg-gold/20 text-warmDark' : 'text-warmDark/70 hover:text-warmDark/70'}`}
                 >
                   <Camera className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setShowExport(true)}
+                  title="Export as PDF"
+                  className="p-1.5 rounded-lg transition-all text-warmDark/70 hover:text-warmDark"
+                >
+                  <Download className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -1265,6 +1608,12 @@ export default function MemoryDetailC({ memory, onClose, onAddSubstory, onUpdate
         />
       )}
 
+      {/* ── Export modal ── */}
+      {showExport && (
+        <Suspense fallback={null}>
+          <MemoryBookExport memory={memory} onClose={() => setShowExport(false)} />
+        </Suspense>
+      )}
 
     </div>
   )

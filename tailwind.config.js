@@ -17,15 +17,9 @@ export default {
         warmMid: '#8b7355',
       },
       fontFamily: {
-        serif: ['"Playfair Display"', 'Georgia', 'serif'],
-        sans: ['"DM Sans"', 'system-ui', '-apple-system', 'sans-serif'],
-        handwriting: ['"Caveat"', 'cursive'],
-        // font demo categories
-        poetic: ['"Cormorant Garamond"', 'Georgia', 'serif'],
-        warm: ['"Dancing Script"', 'cursive'],
-        editorial: ['"Lora"', 'Georgia', 'serif'],
-        elegant: ['"Sacramento"', 'cursive'],
-        literary: ['"EB Garamond"', 'Georgia', 'serif'],
+        sans: ['"Outfit"', 'system-ui', '-apple-system', 'sans-serif'],
+        serif: ['"Outfit"', 'system-ui', 'sans-serif'],
+        handwriting: ['"Outfit"', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         'blob': '60% 40% 30% 70% / 60% 30% 70% 40%',

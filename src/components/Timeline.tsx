@@ -13,7 +13,7 @@ import FloatingNav from './FloatingNav'
 const CreateMemoryModal = lazy(() => import('./CreateMemoryModal'))
 
 export default function Timeline() {
-  const { activeSpaceData: space, setActiveSpace, addMemory, updateMemory, deleteMemory, addReaction, addSubstory, updateSubstory, deleteSubstory, getVisibleMemories, currentUser, removeMember, leaveSpace, updateMemberPermission, hasMoreMemories, loadingMore, fetchMoreMemories } =
+  const { activeSpaceData: space, setActiveSpace, addMemory, updateMemory, deleteMemory, addReaction, addSubstory, updateSubstory, deleteSubstory, getVisibleMemories, currentUser, removeMember, leaveSpace, updateMemberPermission, hasMoreMemories, loadingMore, fetchMoreMemories, markNotificationsRead } =
     useStore()
   const [showCreate, setShowCreate] = useState(false)
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null)
@@ -74,6 +74,10 @@ export default function Timeline() {
     }
   }, [inView, hasMoreMemories, loadingMore, selectedMemoryId])
 
+  // Mark notifications as read when entering this space
+  useEffect(() => {
+    if (space?.id) markNotificationsRead({ spaceId: space.id })
+  }, [space?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const visibleMemories = space ? getVisibleMemories(space) : []
   const sortedMemories = useMemo(
@@ -528,6 +532,7 @@ export default function Timeline() {
               </div>
             </motion.div>
           )}
+
         </motion.div>
       )}
 
@@ -757,6 +762,7 @@ export default function Timeline() {
           currentUserId={currentUser?.id}
         />
       </Suspense>
+
     </div>
   )
 }

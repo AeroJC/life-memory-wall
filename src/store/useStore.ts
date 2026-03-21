@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { Memory, MemorySpace, SubStory, User, SpaceMember, PendingInvite } from '../types'
+import { Memory, MemorySpace, SubStory, User, SpaceMember, PendingInvite, AppNotification } from '../types'
 import { api, setToken, clearToken } from '../api'
 
 interface AppState {
@@ -57,6 +57,14 @@ interface AppState {
   removeMember: (spaceId: string, userId: string) => Promise<void>
   updateMemberRole: (spaceId: string, userId: string, role: SpaceMember['role']) => Promise<void>
   updateMemberPermission: (spaceId: string, userId: string, permission: 'view' | 'edit') => Promise<void>
+
+  // Notifications
+  notifications: AppNotification[]
+  unreadCounts: { total: number; bySpace: Record<string, number> }
+  fetchNotifications: () => Promise<void>
+  fetchUnreadCounts: () => Promise<void>
+  fetchNotificationSummary: () => Promise<void>
+  markNotificationsRead: (data?: { notificationIds?: string[]; spaceId?: string }) => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -67,6 +75,8 @@ export const useStore = create<AppState>((set, get) => ({
   activeSpaceId: null,
   activeSpaceData: null,
   loading: false,
+  notifications: [],
+  unreadCounts: { total: 0, bySpace: {} },
   pendingInvites: [],
   memoryCursor: null,
   hasMoreMemories: false,
@@ -89,7 +99,7 @@ export const useStore = create<AppState>((set, get) => ({
         hasVaultCode: !!result.user.hasVaultCode,
       })
       const savedSpaceId = localStorage.getItem('activeSpaceId')
-      await Promise.all([get().fetchSpaces(), get().fetchMyInvites()])
+      await Promise.all([get().fetchSpaces(), get().fetchNotificationSummary()])
       if (savedSpaceId) {
         await get().setActiveSpace(savedSpaceId)
       }
@@ -116,7 +126,7 @@ export const useStore = create<AppState>((set, get) => ({
       hiddenSpaceIds: result.user.hiddenSpaceIds || [],
       hasVaultCode: !!result.user.hasVaultCode,
     })
-    await Promise.all([get().fetchSpaces(), get().fetchMyInvites()])
+    await Promise.all([get().fetchSpaces(), get().fetchNotificationSummary()])
   },
 
   loginWithCode: async (email, code) => {
@@ -129,7 +139,7 @@ export const useStore = create<AppState>((set, get) => ({
       hiddenSpaceIds: result.user.hiddenSpaceIds || [],
       hasVaultCode: !!result.user.hasVaultCode,
     })
-    await Promise.all([get().fetchSpaces(), get().fetchMyInvites()])
+    await Promise.all([get().fetchSpaces(), get().fetchNotificationSummary()])
   },
 
   setCurrentUser: (user) => set({ currentUser: user }),
@@ -233,6 +243,7 @@ export const useStore = create<AppState>((set, get) => ({
         ? { ...state.activeSpaceData, memories: [...state.activeSpaceData.memories, created], memoryCount: state.activeSpaceData.memoryCount + 1 }
         : state.activeSpaceData,
     }))
+    get().fetchNotificationSummary()
   },
 
   updateMemory: async (spaceId, memoryId, updates) => {
@@ -312,6 +323,7 @@ export const useStore = create<AppState>((set, get) => ({
             }
           : state.activeSpaceData,
       }))
+      get().fetchNotificationSummary()
     } catch (err) {
       console.error('Failed to add substory:', err)
     }
@@ -492,6 +504,64 @@ export const useStore = create<AppState>((set, get) => ({
           : state.activeSpaceData,
       }
     })
+  },
+
+  // Notifications
+  fetchNotifications: async () => {
+    try {
+      const notifications = await api.getNotifications()
+      set({ notifications })
+    } catch (err) { console.error('Failed to fetch notifications:', err) }
+  },
+
+  fetchUnreadCounts: async () => {
+    try {
+      const unreadCounts = await api.getUnreadCounts()
+      set({ unreadCounts })
+    } catch (err) { console.error('Failed to fetch unread counts:', err) }
+  },
+
+  fetchNotificationSummary: async () => {
+    try {
+      const summary = await api.getNotificationSummary()
+      set({
+        unreadCounts: summary.unreadCounts,
+        pendingInvites: summary.pendingInvites,
+        notifications: summary.notifications,
+      })
+      // Update join request counts on spaces
+      set((state) => ({
+        spaces: state.spaces.map((s) => {
+          const spaceJoinReqs = summary.joinRequests.filter((r) => r.spaceId === s.id)
+          if (spaceJoinReqs.length > 0 || (s.joinRequests && s.joinRequests.length > 0)) {
+            return { ...s, joinRequests: spaceJoinReqs.map((r) => ({ userId: r.userId, userName: r.userName, requestedAt: r.requestedAt })) }
+          }
+          return s
+        }),
+      }))
+    } catch (err) { console.error('Failed to fetch notification summary:', err) }
+  },
+
+  markNotificationsRead: async (data) => {
+    try {
+      await api.markNotificationsRead(data)
+      if (data?.spaceId) {
+        set((state) => ({
+          unreadCounts: {
+            total: state.unreadCounts.total - (state.unreadCounts.bySpace[data.spaceId] || 0),
+            bySpace: { ...state.unreadCounts.bySpace, [data.spaceId]: 0 },
+          },
+          notifications: state.notifications.map(n =>
+            n.spaceId === data.spaceId ? { ...n, read: true } : n
+          ),
+        }))
+      } else {
+        set((state) => ({
+          unreadCounts: { total: 0, bySpace: {} },
+          notifications: state.notifications.map(n => ({ ...n, read: true })),
+        }))
+      }
+    } catch (err) { console.error('Failed to mark notifications read:', err) }
   },
 }))
 

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, LogOut, UserMinus, ArrowLeft, User, ImagePlus, Copy, Lock, Unlock, UserPlus, Share2, MessageCircle, Smartphone } from 'lucide-react'
+import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, LogOut, UserMinus, ArrowLeft, User, ImagePlus, Copy, Lock, Unlock, UserPlus, Share2, MessageCircle, Smartphone, Bell } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { useStore } from '../store/useStore'
@@ -14,6 +14,7 @@ import { validatePassword } from '../utils/validation'
 import { MemorySpace } from '../types'
 
 import ImageCropModal from './ImageCropModal'
+import OnThisDay from './OnThisDay'
 
 const defaultSpaceColors = [
   'from-purple-200/60 to-pink-200/60',
@@ -44,10 +45,10 @@ const spacePageSubheadings = [
 ]
 
 export default function SpaceSelector() {
-  const { getVisibleSpaces, setActiveSpace, addSpace, updateSpace, deleteSpace, leaveSpace, removeMember, logout, currentUser, spaces, loading, pendingInvites, acceptSpaceInvite, rejectSpaceInvite, hiddenSpaceIds: storeHiddenSpaceIds, hasVaultCode, setVaultCode: storeSetVaultCode, changeVaultCode: storeChangeVaultCode, verifyVaultCode: storeVerifyVaultCode, updateHiddenSpaces: storeUpdateHiddenSpaces, forgotVaultCode: storeForgotVaultCode, verifyVaultOtp: storeVerifyVaultOtp, resetVaultCode: storeResetVaultCode } = useStore()
+  const { getVisibleSpaces, setActiveSpace, addSpace, updateSpace, deleteSpace, leaveSpace, removeMember, logout, currentUser, spaces, loading, pendingInvites, acceptSpaceInvite, rejectSpaceInvite, hiddenSpaceIds: storeHiddenSpaceIds, hasVaultCode, setVaultCode: storeSetVaultCode, changeVaultCode: storeChangeVaultCode, verifyVaultCode: storeVerifyVaultCode, updateHiddenSpaces: storeUpdateHiddenSpaces, forgotVaultCode: storeForgotVaultCode, verifyVaultOtp: storeVerifyVaultOtp, resetVaultCode: storeResetVaultCode, unreadCounts, fetchNotificationSummary, notifications } = useStore()
   const allSpaces = getVisibleSpaces()
   const totalJoinRequests = spaces.reduce((sum, s) => s.createdBy === currentUser?.id ? sum + (s.joinRequests?.length || 0) : sum, 0)
-  const totalNotifications = pendingInvites.length + totalJoinRequests
+  const totalNotifications = pendingInvites.length + totalJoinRequests + unreadCounts.total
   const [pageHeading] = useState(() => spacePageHeadings[Math.floor(Math.random() * spacePageHeadings.length)])
   const [pageSubheading] = useState(() => spacePageSubheadings[Math.floor(Math.random() * spacePageSubheadings.length)])
 
@@ -75,6 +76,16 @@ export default function SpaceSelector() {
   const [createdSpaceId, setCreatedSpaceId] = useState<string | null>(null)
   const [createdInviteCode, setCreatedInviteCode] = useState<string | null>(null)
   const [viewingSpaceId, setViewingSpaceId] = useState<string | null>(null)
+
+  // Fetch all notification data on mount and poll every 30s
+  useEffect(() => {
+    fetchNotificationSummary()
+    const interval = setInterval(fetchNotificationSummary, 30000)
+    return () => clearInterval(interval)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Notification panel state
+  const [showNotifications, setShowNotifications] = useState(false)
 
   // Edit-mode for spaces page
   const [editPageMode, setEditPageMode] = useState(false)
@@ -452,24 +463,154 @@ export default function SpaceSelector() {
       <div className="relative z-10 h-full overflow-y-auto flex flex-col items-center px-4 pt-16 pb-24">
         {/* Top Right Controls */}
         <div className="fixed top-0 right-0 z-30 pr-6 flex items-center gap-3" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 50px)' }}>
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowNotifications((v) => !v)
+                  setShowProfileMenu(false)
+                }}
+                className="relative w-11 h-11 rounded-full bg-white/60 backdrop-blur-sm flex items-center justify-center shadow-md hover:shadow-lg hover:scale-105 transition-all ring-2 ring-white/50"
+                title="Notifications"
+              >
+                <Bell className="w-5 h-5 text-warmDark/70" />
+                {totalNotifications > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gradient-to-br from-coral to-red-400 rounded-full text-white text-[10px] font-bold flex items-center justify-center shadow-md ring-2 ring-white/80">
+                    {totalNotifications > 99 ? '99+' : totalNotifications}
+                  </span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {showNotifications && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowNotifications(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-14 z-20 w-72 md:w-80 bg-white/95 backdrop-blur-xl border border-white/40 rounded-2xl shadow-2xl overflow-hidden"
+                    >
+                      <div className="px-4 py-3 border-b border-warmMid/10 bg-gradient-to-r from-gold/10 to-coral/10">
+                        <p className="font-serif text-base text-warmDark font-medium">Notifications</p>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto divide-y divide-warmMid/8">
+                        {/* Pending Invites */}
+                        {pendingInvites.map((inv) => (
+                          <div key={`inv-${inv.id}`} className="px-4 py-3 flex items-center gap-3 hover:bg-gold/5 transition-colors">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center flex-shrink-0">
+                              <Mail className="w-4 h-4 text-amber-600/80" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-sans text-sm text-warmDark">
+                                <span className="font-medium">{inv.invitedBy}</span> invited you to <span className="font-medium">{inv.spaceName}</span>
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button
+                                onClick={async () => {
+                                  await acceptSpaceInvite(inv.spaceId)
+                                  fetchNotificationSummary()
+                                }}
+                                className="w-6 h-6 rounded-full bg-teal/15 hover:bg-teal/30 flex items-center justify-center transition-colors"
+                                title="Accept"
+                              >
+                                <Check className="w-3 h-3 text-teal" />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  await rejectSpaceInvite(inv.spaceId)
+                                  fetchNotificationSummary()
+                                }}
+                                className="w-6 h-6 rounded-full bg-coral/15 hover:bg-coral/30 flex items-center justify-center transition-colors"
+                                title="Decline"
+                              >
+                                <X className="w-3 h-3 text-coral" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Join Requests */}
+                        {spaces.filter(s => s.createdBy === currentUser?.id && (s.joinRequests?.length || 0) > 0).map((s) =>
+                          s.joinRequests!.map((req) => (
+                            <div key={`jr-${req.userId}-${s.id}`} className="px-4 py-3 flex items-center gap-3 hover:bg-gold/5 transition-colors cursor-pointer"
+                              onClick={() => {
+                                setViewingSpaceId(s.id)
+                                setMembersTab('requests')
+                                setModal('members')
+                                setShowNotifications(false)
+                              }}
+                            >
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-100 to-yellow-100 flex items-center justify-center flex-shrink-0">
+                                <UserPlus className="w-4 h-4 text-amber-600/80" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-sans text-sm text-warmDark">
+                                  <span className="font-medium">{req.userName}</span> wants to join <span className="font-medium">{s.title}</span>
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        )}
+
+                        {/* Activity Notifications */}
+                        {notifications.map((notif) => (
+                          <div key={`notif-${notif.id}`} className="px-4 py-3 flex items-center gap-3 hover:bg-gold/5 transition-colors cursor-pointer"
+                            onClick={() => {
+                              setActiveSpace(notif.spaceId)
+                              setShowNotifications(false)
+                            }}
+                          >
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              notif.type === 'new_memory' ? 'bg-gradient-to-br from-gold/20 to-amber-100' :
+                              notif.type === 'new_moment' ? 'bg-gradient-to-br from-teal/20 to-emerald-100' :
+                              notif.type === 'new_member' ? 'bg-gradient-to-br from-blue-100 to-indigo-100' :
+                              'bg-gradient-to-br from-pink-100 to-rose-100'
+                            }`}>
+                              {notif.type === 'new_memory' && <Plus className="w-4 h-4 text-gold/80" />}
+                              {notif.type === 'new_moment' && <MessageCircle className="w-4 h-4 text-teal/80" />}
+                              {notif.type === 'new_member' && <Users className="w-4 h-4 text-blue-600/80" />}
+                              {notif.type === 'reaction' && <span className="text-sm">{'❤️'}</span>}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-sans text-sm text-warmDark">{notif.message}</p>
+                              <p className="font-sans text-[11px] text-warmDark/50 mt-0.5">{notif.space?.title}</p>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Empty state */}
+                        {pendingInvites.length === 0 && totalJoinRequests === 0 && notifications.length === 0 && (
+                          <div className="p-8 text-center">
+                            <Bell className="w-8 h-8 text-warmDark/20 mx-auto mb-2" />
+                            <p className="font-sans text-sm text-warmDark/50">No new notifications</p>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
             {/* Profile Menu Dropdown Container */}
             <div className="relative">
               <button
-                onClick={() => setShowProfileMenu((v) => {
-                  if (v) setShowInvites(false) // Reset nested view when closing
-                  return !v
-                })}
+                onClick={() => {
+                  setShowProfileMenu((v) => {
+                    if (v) setShowInvites(false)
+                    return !v
+                  })
+                  setShowNotifications(false)
+                }}
                 className="relative w-11 h-11 rounded-full bg-gradient-to-br from-gold/60 to-coral/60 flex items-center justify-center shadow-md hover:shadow-lg hover:scale-105 transition-all ring-2 ring-white/50"
                 title="Profile options"
               >
                 <span className="font-serif text-lg text-white font-semibold drop-shadow-sm">
                   {currentUser?.name?.[0]?.toUpperCase() || 'U'}
                 </span>
-                {totalNotifications > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gradient-to-br from-coral to-red-400 rounded-full text-white text-[10px] font-bold flex items-center justify-center shadow-md ring-2 ring-white/80">
-                    {totalNotifications}
-                  </span>
-                )}
               </button>
 
               <AnimatePresence>
@@ -768,6 +909,15 @@ export default function SpaceSelector() {
           </motion.div>
         )}
 
+        {/* On This Day — memories from previous years */}
+        {allSpaces.length > 0 && (
+          <OnThisDay
+            onMemoryClick={(spaceId) => {
+              setActiveSpace(spaceId)
+            }}
+          />
+        )}
+
         {/* Space bubbles */}
         <div ref={spacesContainerRef} className="flex flex-wrap justify-center gap-8 md:gap-10 max-w-5xl mb-4">
           {visibleSpaces.map((space, i) => {
@@ -841,6 +991,17 @@ export default function SpaceSelector() {
                       className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-gradient-to-br from-gold/80 to-coral/70 shadow-md flex items-center justify-center ring-2 ring-white/80 z-10"
                     >
                       <Lock className="w-3.5 h-3.5 text-white" />
+                    </motion.div>
+                  )}
+
+                  {/* Unread notification badge */}
+                  {!editPageMode && !hideSelectMode && (unreadCounts.bySpace[space.id] || 0) > 0 && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1 rounded-full bg-gradient-to-br from-coral to-red-400 shadow-md flex items-center justify-center ring-2 ring-white/80 z-10"
+                    >
+                      <span className="text-white text-[10px] font-bold">{unreadCounts.bySpace[space.id]}</span>
                     </motion.div>
                   )}
 

@@ -1,10 +1,12 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
-import React, { useState, useRef, useEffect } from 'react'
+import { MapPin, Plus, Image, BookOpen, Camera, Upload, Loader2, X, ChevronLeft, ChevronRight, Pencil, Trash2, Video, Download } from 'lucide-react'
+import React, { useState, useRef, useEffect, Suspense, lazy } from 'react'
 import { Memory, SubStory } from '../types'
 import { sanitizeHtml } from '../utils/sanitize'
-import { uploadMultipleImages } from '../cloudinary'
+import { uploadMultipleImages, uploadVideo } from '../cloudinary'
 import RichTextEditor from './RichTextEditor'
+
+const MemoryExport = lazy(() => import('./MemoryBookExport'))
 
 interface Props {
   memory: Memory
@@ -47,13 +49,17 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
   const [addFormStep, setAddFormStep] = useState<'pick' | 'edit'>('pick')
   const [newTitle, setNewTitle] = useState('')
   const [newContent, setNewContent] = useState('')
-  const [newType, setNewType] = useState<'text' | 'photo' | 'photos' | 'img-left' | 'img-right' | 'img-top' | 'img-bottom' | 'canvas'>('text')
+  const [newType, setNewType] = useState<'text' | 'photo' | 'photos' | 'img-left' | 'img-right' | 'img-top' | 'img-bottom' | 'canvas' | 'video'>('text')
   const [newPhotos, setNewPhotos] = useState<string[]>([])
+  const [newVideoUrl, setNewVideoUrl] = useState<string>('')
   const [uploading, setUploading] = useState(false)
+  const [videoUploading, setVideoUploading] = useState(false)
   const [editingSubstoryId, setEditingSubstoryId] = useState<string | null>(null)
   const [editMode, setEditMode] = useState(false)
+  const [showExport, setShowExport] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const editFileInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
 
   const handlePhotoFiles = async (files: File[], setter: React.Dispatch<React.SetStateAction<string[]>>, inputRef: React.RefObject<HTMLInputElement>) => {
     if (!files.length) return
@@ -79,14 +85,30 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
   const sortedDates = Object.keys(groupedByDate).sort()
 
   const resetForm = () => {
-    setNewTitle(''); setNewContent(''); setNewPhotos([])
+    setNewTitle(''); setNewContent(''); setNewPhotos([]); setNewVideoUrl('')
     setNewType('text'); setEditingSubstoryId(null); setShowAddForm(false); setAddFormStep('pick')
   }
 
   const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').trim()
 
+  const handleVideoUpload = async (files: FileList | null) => {
+    const file = files?.[0]
+    if (!file) return
+    setVideoUploading(true)
+    try {
+      const url = await uploadVideo(file)
+      setNewVideoUrl(url)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Video upload failed')
+    } finally {
+      setVideoUploading(false)
+      if (videoInputRef.current) videoInputRef.current.value = ''
+    }
+  }
+
   const handleSaveSubstory = () => {
-    if (!newTitle.trim() && !stripHtml(newContent)) return
+    if (!newTitle.trim() && !stripHtml(newContent) && newType === 'video' && !newVideoUrl) return
+    if (!newTitle.trim() && !stripHtml(newContent) && newType !== 'video') return
     const substory: SubStory = {
       id: editingSubstoryId || `sub-${Date.now()}`,
       date: substories.find((s) => s.id === editingSubstoryId)?.date || new Date().toISOString().split('T')[0],
@@ -94,7 +116,8 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
       title: newTitle.trim() || undefined,
       content: newType === 'text' ? newContent : undefined,
       caption: newType !== 'text' ? newContent : undefined,
-      photos: newType !== 'text' ? newPhotos : undefined,
+      photos: newType !== 'text' && newType !== 'video' ? newPhotos : undefined,
+      videoUrl: newType === 'video' ? newVideoUrl || undefined : undefined,
     }
     if (editingSubstoryId) {
       onUpdateSubstory(memory.id, substory)
@@ -110,6 +133,7 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
     setNewContent(sub.content || sub.caption || '')
     setNewType(sub.type)
     setNewPhotos(sub.photos || [])
+    setNewVideoUrl(sub.videoUrl || '')
     setAddFormStep('edit')
     setShowAddForm(true)
   }
@@ -201,6 +225,13 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
                 </button>
                 <div className="w-px h-4 bg-white/20 mx-0.5" />
                 <button
+                  onClick={() => setShowExport(true)}
+                  title="Export as PDF"
+                  className="p-1.5 rounded-lg transition-all text-white/70 hover:text-white"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </button>
+                <button
                   onClick={() => { setEditMode((v) => !v); if (editMode) resetForm() }}
                   title={editMode ? 'Done editing' : 'Edit moments'}
                   className={`p-1.5 rounded-lg transition-all ${editMode ? 'bg-coral/40 text-white' : 'text-white/70 hover:text-white'}`}
@@ -263,9 +294,16 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
             >
               <Camera className="w-4 h-4" />
             </button>
+            <div className="w-px h-4 bg-warmMid/20 mx-0.5" />
+            <button
+              onClick={() => setShowExport(true)}
+              title="Export as PDF"
+              className="p-1.5 rounded-lg transition-all text-warmDark/70 hover:text-warmDark"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
             {canEdit && (
               <>
-                <div className="w-px h-4 bg-warmMid/20 mx-0.5" />
                 <button
                   onClick={() => { setEditMode((v) => !v); if (editMode) resetForm() }}
                   title={editMode ? 'Done editing' : 'Edit moments'}
@@ -461,6 +499,33 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
                                 </div>
                               )}
 
+                              {/* Video moment */}
+                              {sub.type === 'video' && (
+                                <div>
+                                  {sub.title && <h4 className="font-serif text-lg font-bold text-warmDark mb-3">{sub.title}</h4>}
+                                  {sub.videoUrl ? (
+                                    <div className="rounded-xl overflow-hidden bg-black/5">
+                                      <video
+                                        src={sub.videoUrl}
+                                        controls
+                                        playsInline
+                                        preload="metadata"
+                                        className="w-full rounded-xl"
+                                        style={{ maxHeight: '400px' }}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className={`h-48 rounded-xl bg-gradient-to-br ${storyGradients[idx % storyGradients.length]} flex flex-col items-center justify-center border border-white/40 gap-2`}>
+                                      <svg className="w-10 h-10 text-warmDark/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                        <polygon points="5 3 19 12 5 21 5 3" />
+                                      </svg>
+                                      <span className="font-sans text-xs text-warmDark/40">No video</span>
+                                    </div>
+                                  )}
+                                  {sub.caption && <div className="font-sans text-sm text-warmDark/90 italic mt-3 leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(sub.caption || '') }} />}
+                                </div>
+                              )}
+
                               {/* Separator between stories */}
                               <div className="h-px bg-warmMid/5 mt-5" />
 
@@ -476,7 +541,7 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
                                     {/* Layout picker */}
                                     <div className="mb-3">
                                       <p className="font-handwriting text-warmDark/75 text-sm mb-1.5">Layout</p>
-                                      <div className="grid grid-cols-6 gap-1.5">
+                                      <div className="grid grid-cols-7 gap-1.5">
                                         {([
                                           { type: 'text', preview: <div className="flex flex-col gap-0.5 w-full px-0.5"><div className="h-1 bg-warmDark/25 rounded-full"/><div className="h-1 bg-warmDark/15 rounded-full w-4/5"/><div className="h-1 bg-warmDark/15 rounded-full"/></div> },
                                           { type: 'img-left', preview: <div className="flex gap-0.5 w-full px-0.5"><div className="w-1/2 h-5 bg-gold/30 rounded"/><div className="flex-1 flex flex-col gap-0.5 justify-center"><div className="h-1 bg-warmDark/20 rounded-full"/><div className="h-1 bg-warmDark/12 rounded-full w-4/5"/></div></div> },
@@ -484,6 +549,7 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
                                           { type: 'img-top', preview: <div className="flex flex-col gap-0.5 w-full px-0.5"><div className="h-3.5 bg-lavender/50 rounded w-full"/><div className="h-1 bg-warmDark/20 rounded-full"/><div className="h-1 bg-warmDark/12 rounded-full w-4/5"/></div> },
                                           { type: 'img-bottom', preview: <div className="flex flex-col gap-0.5 w-full px-0.5"><div className="h-1 bg-warmDark/20 rounded-full"/><div className="h-1 bg-warmDark/12 rounded-full w-4/5"/><div className="h-3.5 bg-teal/30 rounded w-full"/></div> },
                                           { type: 'photos', preview: <div className="grid grid-cols-2 gap-0.5 w-full px-0.5"><div className="h-2.5 bg-gold/25 rounded"/><div className="h-2.5 bg-coral/25 rounded"/><div className="h-2.5 bg-lavender/35 rounded"/><div className="h-2.5 bg-teal/25 rounded"/></div> },
+                                          { type: 'video', preview: <div className="w-full h-5 bg-warmDark/8 rounded flex items-center justify-center"><svg className="w-3 h-3 text-coral/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3" /></svg></div> },
                                         ] as { type: typeof newType; preview: React.ReactNode }[]).map(({ type, preview }) => (
                                           <button
                                             key={type}
@@ -661,6 +727,18 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
                                   </div>
                                 ),
                               },
+                              {
+                                type: 'video' as const,
+                                label: 'Video',
+                                desc: 'Upload a video clip',
+                                preview: (
+                                  <div className="w-full h-14 bg-warmDark/10 rounded-lg flex items-center justify-center relative">
+                                    <svg className="w-7 h-7 text-coral/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                      <polygon points="5 3 19 12 5 21 5 3" />
+                                    </svg>
+                                  </div>
+                                ),
+                              },
                             ].map(({ type, label, desc, preview }) => (
                               <button
                                 key={type}
@@ -692,7 +770,7 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
                               </button>
                             )}
                             <h4 className="font-serif text-xl text-warmDark flex-1">
-                              {editingSubstoryId ? 'Edit moment' : ({ text: 'Story', 'img-left': 'Photo left', 'img-right': 'Photo right', 'img-top': 'Photo top', 'img-bottom': 'Photo below', photos: 'Photo grid', photo: 'Photo' } as Record<string,string>)[newType]}
+                              {editingSubstoryId ? 'Edit moment' : ({ text: 'Story', 'img-left': 'Photo left', 'img-right': 'Photo right', 'img-top': 'Photo top', 'img-bottom': 'Photo below', photos: 'Photo grid', photo: 'Photo', video: 'Video' } as Record<string,string>)[newType]}
                             </h4>
                             <button onClick={resetForm} className="text-warmDark/40 hover:text-warmDark/70 transition-colors"><X className="w-5 h-5" /></button>
                           </div>
@@ -832,10 +910,48 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
                             </div>
                           )}
 
+                          {/* ── video: upload area + optional caption ── */}
+                          {newType === 'video' && (
+                            <div className="mb-4 space-y-3">
+                              <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska"
+                                className="hidden"
+                                onChange={(e) => handleVideoUpload(e.target.files)} />
+
+                              {newVideoUrl ? (
+                                <div className="relative group rounded-xl overflow-hidden bg-black/5">
+                                  <video src={newVideoUrl} controls playsInline preload="metadata" className="w-full rounded-xl" style={{ maxHeight: '250px' }} />
+                                  <button type="button" onClick={() => setNewVideoUrl('')}
+                                    className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <X className="w-3.5 h-3.5 text-white" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button type="button" onClick={() => videoInputRef.current?.click()}
+                                  disabled={videoUploading}
+                                  className="w-full h-40 border-2 border-dashed border-warmMid/20 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-gold/40 hover:bg-gold/5 transition-all disabled:opacity-50">
+                                  {videoUploading ? (
+                                    <>
+                                      <Loader2 className="w-8 h-8 animate-spin text-warmDark/40" />
+                                      <span className="text-sm text-warmDark/50">Uploading video...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Video className="w-8 h-8 text-warmDark/30" />
+                                      <span className="text-sm text-warmDark/50">Choose a video</span>
+                                      <span className="text-xs text-warmDark/30">MP4, WebM, MOV — max 100 MB</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+
+                              <RichTextEditor value={newContent} onChange={setNewContent} placeholder="Add a caption (optional)..." />
+                            </div>
+                          )}
+
                           {/* Actions */}
                           <div className="flex gap-3">
                             <button onClick={resetForm} className="flex-1 py-3 rounded-xl text-warmDark/75 hover:bg-white/20 transition-all">Cancel</button>
-                            <button onClick={handleSaveSubstory} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-gold/80 to-coral/70 text-white font-medium">
+                            <button onClick={handleSaveSubstory} disabled={videoUploading} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-gold/80 to-coral/70 text-white font-medium disabled:opacity-50">
                               {editingSubstoryId ? 'Save changes' : 'Add moment'}
                             </button>
                           </div>
@@ -963,6 +1079,16 @@ export default function MemoryDetail({ memory, onClose: _onClose, onAddSubstory,
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Export modal */}
+      {showExport && (
+        <Suspense fallback={null}>
+          <MemoryExport
+            memory={memory}
+            onClose={() => setShowExport(false)}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

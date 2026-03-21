@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core'
-import type { User, MemorySpace, Memory, SubStory, PendingInvite, SpacePendingInvite } from './types'
+import type { User, MemorySpace, Memory, SubStory, PendingInvite, SpacePendingInvite, OnThisDayMemory, AppNotification } from './types'
 
 function getBaseUrl() {
   if (Capacitor.isNativePlatform()) {
@@ -260,4 +260,21 @@ export const api = {
 
   resetVaultCode: (otpCode: string, newCode: string) =>
     request<{ success: boolean }>('/auth/vault-code/reset', { method: 'POST', body: JSON.stringify({ otpCode, newCode }) }),
+
+  // On This Day
+  getOnThisDay: () =>
+    request<OnThisDayMemory[]>('/on-this-day'),
+
+  // Notifications
+  getNotifications: () =>
+    request<AppNotification[]>('/notifications'),
+
+  getUnreadCounts: () =>
+    request<{ total: number; bySpace: Record<string, number> }>('/notifications/unread-count'),
+
+  getNotificationSummary: () =>
+    request<import('./types').NotificationSummary>('/notifications/summary'),
+
+  markNotificationsRead: (data?: { notificationIds?: string[]; spaceId?: string }) =>
+    request<{ success: boolean }>('/notifications/mark-read', { method: 'POST', body: JSON.stringify(data || {}) }),
 }

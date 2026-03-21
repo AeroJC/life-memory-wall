@@ -10,7 +10,7 @@ export interface TextStyle {
 export interface SubStory {
   id: string
   date: string
-  type: 'text' | 'photo' | 'photos' | 'img-left' | 'img-right' | 'img-top' | 'img-bottom' | 'canvas'
+  type: 'text' | 'photo' | 'photos' | 'img-left' | 'img-right' | 'img-top' | 'img-bottom' | 'canvas' | 'video'
   title?: string
   content?: string
   photos?: string[]
@@ -19,6 +19,20 @@ export interface SubStory {
   textStyle?: TextStyle
   titleStyle?: TextStyle
   canvasData?: CanvasData
+  audioUrl?: string
+  videoUrl?: string
+}
+
+export interface OnThisDayMemory {
+  id: string
+  title: string
+  date: string
+  photos: string[]
+  story: string
+  location?: string
+  spaceId: string
+  spaceTitle: string
+  yearsAgo: number
 }
 
 export interface Memory {
@@ -109,6 +123,26 @@ export interface SpacePendingInvite {
   invitedBy: string
   status: 'pending' | 'rejected'
   createdAt: string
+}
+
+export interface AppNotification {
+  id: string
+  type: 'new_memory' | 'new_moment' | 'new_member' | 'reaction'
+  message: string
+  spaceId: string
+  actorId: string
+  actor: { id: string; name: string; avatar: string }
+  space: { id: string; title: string; coverEmoji: string; coverIcon?: string }
+  targetId?: string
+  read: boolean
+  createdAt: string
+}
+
+export interface NotificationSummary {
+  unreadCounts: { total: number; bySpace: Record<string, number> }
+  pendingInvites: PendingInvite[]
+  joinRequests: { userId: string; userName: string; spaceId: string; requestedAt: string }[]
+  notifications: AppNotification[]
 }
 
 /* ── Canvas Editor types ── */
