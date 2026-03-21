@@ -2,35 +2,14 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Download, Loader2, X, Check } from 'lucide-react'
 import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 import { Memory, SubStory } from '../types'
 import { sanitizeText } from '../utils/sanitize'
+import { sanitizeHtml } from '../utils/sanitize'
 
 interface Props {
   memory: Memory
   onClose: () => void
-}
-
-async function fetchImageAsBase64(url: string): Promise<{ data: string; format: 'JPEG' | 'PNG' } | null> {
-  try {
-    const optimizedUrl = url.includes('/upload/')
-      ? url.replace('/upload/', '/upload/w_600,q_70,f_jpg/')
-      : url
-    const res = await fetch(optimizedUrl)
-    if (!res.ok) return null
-    const blob = await res.blob()
-    return new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve({ data: reader.result as string, format: 'JPEG' })
-      reader.onerror = () => resolve(null)
-      reader.readAsDataURL(blob)
-    })
-  } catch {
-    return null
-  }
-}
-
-function stripHtml(html: string): string {
-  return html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim()
 }
 
 function formatDateForPdf(dateStr: string): string {
@@ -39,6 +18,41 @@ function formatDateForPdf(dateStr: string): string {
     day: 'numeric',
     year: 'numeric',
   })
+}
+
+function stripHtml(html: string): string {
+  return html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim()
+}
+
+/** Render an offscreen HTML element to canvas, then to a jsPDF image */
+async function renderToCanvas(el: HTMLElement): Promise<HTMLCanvasElement> {
+  return html2canvas(el, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: true,
+    backgroundColor: '#fffbf5',
+    logging: false,
+  })
+}
+
+/** Build a styled offscreen container matching the app's look */
+function createContainer(widthPx: number): HTMLDivElement {
+  const container = document.createElement('div')
+  container.style.cssText = `
+    position: fixed; left: -9999px; top: 0;
+    width: ${widthPx}px;
+    font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+    background: #fffbf5;
+    color: #4a3728;
+    padding: 32px;
+    box-sizing: border-box;
+  `
+  document.body.appendChild(container)
+  return container
+}
+
+function removeContainer(el: HTMLElement) {
+  document.body.removeChild(el)
 }
 
 export default function MemoryBookExport({ memory, onClose }: Props) {
@@ -53,241 +67,239 @@ export default function MemoryBookExport({ memory, onClose }: Props) {
     setExporting(true)
     setProgress(0)
     setDone(false)
-    setProgressLabel('Generating PDF...')
+    setProgressLabel('Rendering pages...')
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const pageW = doc.internal.pageSize.getWidth()
     const pageH = doc.internal.pageSize.getHeight()
-    const margin = 20
+    const margin = 10
     const contentW = pageW - margin * 2
-    let y = 0
+    const containerPx = 600 // render width for html2canvas
+    let isFirstPage = true
 
-    const addPageIfNeeded = (neededHeight: number) => {
-      if (y + neededHeight > pageH - margin) {
-        doc.addPage()
-        y = margin
+    /** Add a canvas as an image page (or flowing) to the PDF */
+    const addCanvasToDoc = (canvas: HTMLCanvasElement, startNewPage: boolean) => {
+      const imgData = canvas.toDataURL('image/jpeg', 0.92)
+      const imgW = contentW
+      const imgH = (canvas.height / canvas.width) * imgW
+
+      if (startNewPage && !isFirstPage) doc.addPage()
+      isFirstPage = false
+
+      // If image is taller than page, scale to fit
+      if (imgH > pageH - margin * 2) {
+        const scale = (pageH - margin * 2) / imgH
+        const scaledW = imgW * scale
+        const scaledH = imgH * scale
+        doc.addImage(imgData, 'JPEG', margin + (contentW - scaledW) / 2, margin, scaledW, scaledH)
+      } else {
+        doc.addImage(imgData, 'JPEG', margin, margin, imgW, imgH)
       }
     }
 
     // ── Cover Page ──
-    // Try to use the first cover photo as background
+    setProgressLabel('Rendering cover...')
+    const coverEl = createContainer(containerPx)
     const coverPhoto = memory.photos?.[0]
+    coverEl.innerHTML = `
+      <div style="
+        position: relative;
+        min-height: ${containerPx * 1.4}px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center;
+        border-radius: 12px;
+        overflow: hidden;
+        ${coverPhoto ? `background: url(${coverPhoto}) center/cover no-repeat;` : 'background: linear-gradient(135deg, #d4a574, #e8927c);'}
+        padding: 48px 32px;
+      ">
+        <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.5);"></div>
+        <div style="position: relative; z-index: 1;">
+          <h1 style="font-size: 36px; font-weight: 700; color: white; margin: 0 0 12px 0; line-height: 1.2;">
+            ${sanitizeText(memory.title)}
+          </h1>
+          <p style="font-size: 16px; color: #d4a574; margin: 0 0 8px 0; font-style: italic;">
+            ${formatDateForPdf(memory.date)}${memory.endDate ? ` — ${formatDateForPdf(memory.endDate)}` : ''}
+          </p>
+          ${memory.location ? `<p style="font-size: 14px; color: rgba(255,255,255,0.7); margin: 0 0 16px 0;">${sanitizeText(memory.location)}</p>` : ''}
+          ${substories.length > 0 ? `<p style="font-size: 13px; color: rgba(255,255,255,0.5); margin: 0;">${substories.length} moment${substories.length !== 1 ? 's' : ''}</p>` : ''}
+        </div>
+      </div>
+    `
+    // Wait for cover image to load
     if (coverPhoto) {
-      const coverImg = await fetchImageAsBase64(coverPhoto)
-      if (coverImg) {
-        try {
-          doc.addImage(coverImg.data, coverImg.format, 0, 0, pageW, pageH)
-        } catch {
-          // fallback to solid color
-        }
-      }
+      await new Promise(resolve => setTimeout(resolve, 500))
     }
-
-    // Dark overlay
-    doc.setFillColor(0, 0, 0)
-    doc.setGState(new (doc as any).GState({ opacity: 0.55 }))
-    doc.rect(0, 0, pageW, pageH, 'F')
-    doc.setGState(new (doc as any).GState({ opacity: 1 }))
-
-    // Title
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(28)
-    doc.setFont('helvetica', 'bold')
-    const title = sanitizeText(memory.title)
-    const titleLines = doc.splitTextToSize(title, contentW)
-    doc.text(titleLines, pageW / 2, pageH / 2 - 15, { align: 'center' })
-
-    // Date + location
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'italic')
-    doc.setTextColor(212, 165, 116)
-    let dateLine = formatDateForPdf(memory.date)
-    if (memory.endDate) dateLine += ` — ${formatDateForPdf(memory.endDate)}`
-    doc.text(dateLine, pageW / 2, pageH / 2 + 5, { align: 'center' })
-
-    if (memory.location) {
-      doc.setFontSize(10)
-      doc.setTextColor(255, 255, 255, 180)
-      doc.text(sanitizeText(memory.location), pageW / 2, pageH / 2 + 14, { align: 'center' })
-    }
-
-    // Moments count
-    if (substories.length > 0) {
-      doc.setFontSize(10)
-      doc.setTextColor(255, 255, 255, 140)
-      doc.text(`${substories.length} moment${substories.length !== 1 ? 's' : ''}`, pageW / 2, pageH / 2 + 26, { align: 'center' })
-    }
-
-    // Footer
-    doc.setFontSize(8)
-    doc.setTextColor(255, 255, 255, 80)
-    doc.text('My Inner Circle', pageW / 2, pageH - 15, { align: 'center' })
-
+    const coverCanvas = await renderToCanvas(coverEl)
+    addCanvasToDoc(coverCanvas, false)
+    removeContainer(coverEl)
     setProgress(15)
 
-    // ── Story page ──
+    // ── Story text ──
     const storyText = stripHtml(memory.story)
     if (storyText) {
-      doc.addPage()
-      y = margin
-
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(11)
-      doc.setTextColor(74, 55, 40)
-      const storyLines = doc.splitTextToSize(storyText, contentW)
-      for (const line of storyLines) {
-        addPageIfNeeded(6)
-        doc.text(line, margin, y + 4)
-        y += 5.5
-      }
-      y += 8
+      setProgressLabel('Rendering story...')
+      const storyEl = createContainer(containerPx)
+      storyEl.innerHTML = `
+        <div style="padding: 8px 0;">
+          <p style="font-size: 15px; line-height: 1.7; color: #4a3728; white-space: pre-wrap; margin: 0;">
+            ${sanitizeHtml(memory.story)}
+          </p>
+        </div>
+      `
+      const storyCanvas = await renderToCanvas(storyEl)
+      addCanvasToDoc(storyCanvas, true)
+      removeContainer(storyEl)
     }
 
-    // ── Cover photos (beyond the first one used as background) ──
+    // ── Cover photos (beyond the first) ──
     if (memory.photos && memory.photos.length > 1) {
-      addPageIfNeeded(40)
-      for (let pi = 1; pi < Math.min(memory.photos.length, 5); pi++) {
-        const imgData = await fetchImageAsBase64(memory.photos[pi])
-        if (imgData) {
-          const imgW = contentW
-          const imgH = imgW * 0.6
-          addPageIfNeeded(imgH + 6)
-          try {
-            doc.addImage(imgData.data, imgData.format, margin, y, imgW, imgH)
-            y += imgH + 6
-          } catch {
-            // skip
-          }
-        }
-      }
+      const photosEl = createContainer(containerPx)
+      const photoHtml = memory.photos.slice(1, 5).map(url =>
+        `<img src="${url}" style="max-width: 100%; height: auto; border-radius: 10px; margin-bottom: 12px; display: block;" crossorigin="anonymous" />`
+      ).join('')
+      photosEl.innerHTML = `<div>${photoHtml}</div>`
+      await new Promise(resolve => setTimeout(resolve, 800))
+      const photosCanvas = await renderToCanvas(photosEl)
+      addCanvasToDoc(photosCanvas, true)
+      removeContainer(photosEl)
     }
 
     // Tags
     if (memory.tags && memory.tags.length > 0) {
-      addPageIfNeeded(10)
-      doc.setFontSize(9)
-      doc.setTextColor(212, 165, 116)
-      doc.text(memory.tags.map((t) => `#${sanitizeText(t)}`).join('  '), margin, y + 4)
-      y += 10
+      const tagsEl = createContainer(containerPx)
+      tagsEl.innerHTML = `
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          ${memory.tags.map(t => `<span style="background: rgba(212,165,116,0.15); color: #d4a574; padding: 4px 12px; border-radius: 20px; font-size: 13px;">#${sanitizeText(t)}</span>`).join('')}
+        </div>
+      `
+      const tagsCanvas = await renderToCanvas(tagsEl)
+      addCanvasToDoc(tagsCanvas, true)
+      removeContainer(tagsEl)
     }
-
     setProgress(30)
 
-    // ── Moments pages ──
+    // ── Moments ──
     if (substories.length > 0) {
       const totalSubs = substories.length
 
       for (let si = 0; si < substories.length; si++) {
         const sub = substories[si]
+        setProgressLabel(`Rendering moment ${si + 1}/${totalSubs}...`)
         setProgress(30 + Math.round(((si + 1) / totalSubs) * 60))
 
-        // Start each moment on a new page for cleanliness
-        doc.addPage()
-        y = margin
+        const momentEl = createContainer(containerPx)
 
-        // Moment number label
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(212, 165, 116)
-        doc.text(`Moment ${si + 1} of ${totalSubs}`, margin, y + 3)
-        y += 8
-
-        // Substory title
-        if (sub.title) {
-          doc.setFontSize(18)
-          doc.setFont('helvetica', 'bold')
-          doc.setTextColor(74, 55, 40)
-          const subTitleLines = doc.splitTextToSize(sanitizeText(sub.title), contentW)
-          doc.text(subTitleLines, margin, y + 6)
-          y += subTitleLines.length * 7 + 4
-        }
-
-        // Date
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'italic')
-        doc.setTextColor(150, 130, 110)
-        doc.text(formatDateForPdf(sub.date), margin, y + 3)
-        y += 8
-
-        // Divider
-        doc.setDrawColor(212, 165, 116)
-        doc.setLineWidth(0.2)
-        doc.line(margin, y, margin + contentW * 0.3, y)
-        y += 6
-
-        // Photos (before text for visual layouts)
-        if (sub.photos && sub.photos.length > 0 && sub.type !== 'text' && sub.type !== 'video') {
-          const maxPhotos = Math.min(sub.photos.length, 6)
-          const isSingle = maxPhotos === 1
-          for (let pi = 0; pi < maxPhotos; pi++) {
-            const imgData = await fetchImageAsBase64(sub.photos[pi])
-            if (imgData) {
-              const imgW = isSingle ? contentW : contentW / 2 - 2
-              const imgH = imgW * 0.65
-              addPageIfNeeded(imgH + 4)
-              try {
-                const xOffset = !isSingle && pi % 2 === 1 ? margin + contentW / 2 + 2 : margin
-                doc.addImage(imgData.data, imgData.format, xOffset, y, imgW, imgH)
-                if (isSingle || pi % 2 === 1) y += imgH + 4
-              } catch {
-                // skip
-              }
-            }
+        // Build photo HTML
+        let photoHtml = ''
+        if (sub.photos && sub.photos.length > 0 && sub.type !== 'text' && sub.type !== 'video' && sub.type !== 'canvas') {
+          if (sub.type === 'photos' && sub.photos.length > 1) {
+            // Grid layout — square thumbnails
+            photoHtml = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+              ${sub.photos.map(url => `<div style="aspect-ratio: 1; overflow: hidden; border-radius: 10px;"><img src="${url}" style="width: 100%; height: 100%; object-fit: cover;" crossorigin="anonymous" /></div>`).join('')}
+            </div>`
+          } else if (sub.type === 'img-top' || sub.type === 'img-bottom') {
+            // Full-width, natural height
+            photoHtml = `<div style="border-radius: 10px; overflow: hidden;"><img src="${sub.photos[0]}" style="max-width: 100%; height: auto; display: block;" crossorigin="anonymous" /></div>`
+          } else {
+            // img-left, img-right, photo — constrained side image
+            photoHtml = `<div style="width: 48%; flex-shrink: 0; border-radius: 10px; overflow: hidden;"><img src="${sub.photos[0]}" style="width: 100%; height: auto; display: block;" crossorigin="anonymous" /></div>`
           }
-          y += 2
         }
 
-        // Content/caption text
-        const text = stripHtml(sub.content || sub.caption || '')
-        if (text) {
-          doc.setFontSize(11)
-          doc.setFont('helvetica', 'normal')
-          doc.setTextColor(74, 55, 40)
-          const lines = doc.splitTextToSize(text, contentW)
-          for (const line of lines) {
-            addPageIfNeeded(6)
-            doc.text(line, margin, y + 4)
-            y += 5.5
-          }
-          y += 4
+        const titleHtml = sub.title
+          ? `<h3 style="font-size: 20px; font-weight: 700; color: #4a3728; margin: 0 0 6px 0;">${sanitizeText(sub.title)}</h3>`
+          : ''
+
+        const captionText = stripHtml(sub.content || sub.caption || '')
+        const captionHtml = captionText
+          ? `<div style="font-size: 14px; line-height: 1.6; color: rgba(74,55,40,0.85); white-space: pre-wrap;">${sanitizeHtml(sub.content || sub.caption || '')}</div>`
+          : ''
+
+        const dateHtml = `<p style="font-size: 11px; color: #d4a574; margin: 0 0 8px 0;">${formatDateForPdf(sub.date)}</p>`
+
+        // Assemble based on layout type
+        let bodyHtml = ''
+
+        if (sub.type === 'text' || sub.type === 'canvas' || sub.type === 'video') {
+          bodyHtml = `${titleHtml}${dateHtml}${captionHtml}`
+          if (sub.type === 'video') bodyHtml += `<p style="font-size: 12px; color: rgba(74,55,40,0.4); margin-top: 8px; font-style: italic;">🎬 Video moment — view in app</p>`
+        } else if (sub.type === 'img-top') {
+          bodyHtml = `${titleHtml}${dateHtml}${photoHtml}<div style="margin-top: 10px;">${captionHtml}</div>`
+        } else if (sub.type === 'img-bottom') {
+          bodyHtml = `${titleHtml}${dateHtml}${captionHtml}<div style="margin-top: 10px;">${photoHtml}</div>`
+        } else if (sub.type === 'img-left' || sub.type === 'photo') {
+          bodyHtml = `${titleHtml}${dateHtml}<div style="display: flex; gap: 12px; align-items: flex-start;">${photoHtml}<div style="flex: 1;">${captionHtml}</div></div>`
+        } else if (sub.type === 'img-right') {
+          bodyHtml = `${titleHtml}${dateHtml}<div style="display: flex; gap: 12px; align-items: flex-start;"><div style="flex: 1;">${captionHtml}</div>${photoHtml}</div>`
+        } else if (sub.type === 'photos') {
+          bodyHtml = `${titleHtml}${dateHtml}${photoHtml}${captionHtml}`
+        } else {
+          bodyHtml = `${titleHtml}${dateHtml}${captionHtml}`
         }
 
-        // Video note
-        if (sub.type === 'video' && sub.videoUrl) {
-          addPageIfNeeded(10)
-          doc.setFontSize(9)
-          doc.setFont('helvetica', 'italic')
-          doc.setTextColor(180, 160, 140)
-          doc.text('[Video moment — view in app]', margin, y + 4)
-          y += 8
-        }
-
-        // Audio note
         if (sub.audioUrl) {
-          addPageIfNeeded(10)
-          doc.setFontSize(9)
-          doc.setFont('helvetica', 'italic')
-          doc.setTextColor(180, 160, 140)
-          doc.text('[Audio recording — listen in app]', margin, y + 4)
-          y += 8
+          bodyHtml += `<p style="font-size: 12px; color: rgba(74,55,40,0.4); margin-top: 8px; font-style: italic;">🎵 Audio recording — listen in app</p>`
         }
+
+        momentEl.innerHTML = `
+          <div style="
+            background: rgba(74,55,40,0.03);
+            border: 1px solid rgba(74,55,40,0.08);
+            border-radius: 16px;
+            padding: 20px;
+          ">
+            <div style="font-size: 11px; color: rgba(74,55,40,0.4); margin-bottom: 8px;">
+              Moment ${si + 1} of ${totalSubs}
+            </div>
+            ${bodyHtml}
+          </div>
+        `
+
+        // Wait for images to load
+        const imgs = momentEl.querySelectorAll('img')
+        if (imgs.length > 0) {
+          await Promise.all(Array.from(imgs).map(img =>
+            new Promise<void>(resolve => {
+              if (img.complete) { resolve(); return }
+              img.onload = () => resolve()
+              img.onerror = () => resolve()
+            })
+          ))
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+
+        const momentCanvas = await renderToCanvas(momentEl)
+        addCanvasToDoc(momentCanvas, true)
+        removeContainer(momentEl)
       }
     }
 
     // ── Back Cover ──
-    doc.addPage()
-    doc.setFillColor(74, 55, 40)
-    doc.rect(0, 0, pageW, pageH, 'F')
-    doc.setTextColor(212, 165, 116)
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'italic')
-    doc.text(sanitizeText(memory.title), pageW / 2, pageH / 2 - 8, { align: 'center' })
-    doc.setFontSize(10)
-    doc.setTextColor(255, 251, 245, 120)
-    doc.text('Memories are the treasures of the heart.', pageW / 2, pageH / 2 + 5, { align: 'center' })
-    doc.setFontSize(8)
-    doc.setTextColor(255, 251, 245, 80)
-    doc.text(`My Inner Circle · ${new Date().toLocaleDateString()}`, pageW / 2, pageH / 2 + 16, { align: 'center' })
+    setProgressLabel('Finishing...')
+    const backEl = createContainer(containerPx)
+    backEl.innerHTML = `
+      <div style="
+        min-height: ${containerPx * 1.4}px;
+        background: #4a3728;
+        border-radius: 12px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center;
+        padding: 48px 32px;
+      ">
+        <h2 style="font-size: 22px; color: #d4a574; font-style: italic; margin: 0 0 12px 0; font-weight: 400;">
+          ${sanitizeText(memory.title)}
+        </h2>
+        <p style="font-size: 14px; color: rgba(255,251,245,0.5); margin: 0 0 24px 0;">
+          Memories are the treasures of the heart.
+        </p>
+        <p style="font-size: 11px; color: rgba(255,251,245,0.3); margin: 0;">
+          My Inner Circle · ${new Date().toLocaleDateString()}
+        </p>
+      </div>
+    `
+    const backCanvas = await renderToCanvas(backEl)
+    addCanvasToDoc(backCanvas, true)
+    removeContainer(backEl)
 
     // Save
     setProgress(100)
