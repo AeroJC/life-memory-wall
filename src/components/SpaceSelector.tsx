@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, LogOut, UserMinus, ArrowLeft, User, ImagePlus, Copy, Lock, Unlock, UserPlus, Share2, MessageCircle, Smartphone, Bell } from 'lucide-react'
+import { Plus, Users, Crown, Shield, X, Pencil, Trash2, Check, Loader2, Mail, Eye, EyeOff, LogOut, UserMinus, ArrowLeft, User, ImagePlus, Copy, Lock, Unlock, UserPlus, Share2, MessageCircle, Smartphone, Bell, MessageSquare } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { useStore } from '../store/useStore'
@@ -15,6 +15,7 @@ import { MemorySpace } from '../types'
 
 import ImageCropModal from './ImageCropModal'
 import OnThisDay from './OnThisDay'
+import FeedbackForm from './FeedbackForm'
 
 const defaultSpaceColors = [
   'from-purple-200/60 to-pink-200/60',
@@ -25,7 +26,7 @@ const defaultSpaceColors = [
   'from-lime-200/60 to-emerald-200/60',
 ]
 
-type Modal = 'none' | 'create' | 'members' | 'edit-space' | 'edit-profile' | 'change-password' | 'join' | 'unlock-vault' | 'set-secret-code' | 'forgot-vault-code' | 'profile' | 'manage-spaces'
+type Modal = 'none' | 'create' | 'members' | 'edit-space' | 'edit-profile' | 'change-password' | 'join' | 'unlock-vault' | 'set-secret-code' | 'forgot-vault-code' | 'profile' | 'manage-spaces' | 'feedback'
 
 const spacePageHeadings = [
   'Where do you want to go today?',
@@ -737,6 +738,19 @@ export default function SpaceSelector() {
                                 </div>
                                 <span className="font-sans text-sm text-warmDark/75 group-hover:text-warmDark">Profile</span>
                               </button>
+
+                              <button
+                                onClick={() => {
+                                  setModal('feedback')
+                                  setShowProfileMenu(false)
+                                }}
+                                className="w-full text-left px-3 py-2 mx-0.5 md:px-4 md:py-3 md:mx-1 rounded-lg hover:bg-gold/8 transition-all flex items-center gap-2 md:gap-3 group"
+                              >
+                                <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-gold/15 to-amber-100 flex items-center justify-center flex-shrink-0">
+                                  <MessageSquare className="w-3 h-3 md:w-4 md:h-4 text-gold/80" />
+                                </div>
+                                <span className="font-sans text-sm text-warmDark/75 group-hover:text-warmDark">Send feedback</span>
+                              </button>
                             </div>
 
                             <div className="border-t border-warmMid/10 p-1.5 md:p-2">
@@ -1120,7 +1134,7 @@ export default function SpaceSelector() {
 
       {/* ===== MODALS ===== */}
       <AnimatePresence>
-        {modal !== 'none' && (
+        {modal !== 'none' && modal !== 'feedback' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={closeModal}>
             <div className="absolute inset-0 bg-warmDark/20 backdrop-blur-sm" />
@@ -2949,6 +2963,13 @@ export default function SpaceSelector() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* FEEDBACK MODAL */}
+      <AnimatePresence>
+        {modal === 'feedback' && (
+          <FeedbackForm onClose={() => setModal('none')} />
         )}
       </AnimatePresence>
     </div>

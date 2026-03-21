@@ -277,4 +277,8 @@ export const api = {
 
   markNotificationsRead: (data?: { notificationIds?: string[]; spaceId?: string }) =>
     request<{ success: boolean }>('/notifications/mark-read', { method: 'POST', body: JSON.stringify(data || {}) }),
+
+  // Feedback
+  submitFeedback: (data: { type: string; message: string }) =>
+    request<{ success: boolean }>('/feedback', { method: 'POST', body: JSON.stringify(data) }),
 }
