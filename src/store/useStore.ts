@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { Memory, MemorySpace, SubStory, User, SpaceMember, PendingInvite, AppNotification } from '../types'
+import { Memory, MemorySpace, SubStory, User, SpaceMember, PendingInvite, AppNotification, SSENotificationEvent } from '../types'
 import { api, setToken, clearToken } from '../api'
 
 interface AppState {
@@ -65,6 +65,7 @@ interface AppState {
   fetchUnreadCounts: () => Promise<void>
   fetchNotificationSummary: () => Promise<void>
   markNotificationsRead: (data?: { notificationIds?: string[]; spaceId?: string }) => Promise<void>
+  handleSSENotification: (event: SSENotificationEvent) => void
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -562,6 +563,25 @@ export const useStore = create<AppState>((set, get) => ({
         }))
       }
     } catch (err) { console.error('Failed to mark notifications read:', err) }
+  },
+
+  handleSSENotification: (event) => {
+    if (event.type === 'new_notification' && event.notification) {
+      const notif = event.notification
+      set((state) => ({
+        notifications: [notif, ...state.notifications],
+        unreadCounts: {
+          total: state.unreadCounts.total + 1,
+          bySpace: {
+            ...state.unreadCounts.bySpace,
+            [notif.spaceId]: (state.unreadCounts.bySpace[notif.spaceId] || 0) + 1,
+          },
+        },
+      }))
+    } else if (event.type === 'join_request' || event.type === 'invite_update') {
+      // Join requests and invite updates affect spaces state — refresh full summary
+      get().fetchNotificationSummary()
+    }
   },
 }))
 

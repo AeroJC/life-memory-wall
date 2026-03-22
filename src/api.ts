@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core'
 import type { User, MemorySpace, Memory, SubStory, PendingInvite, SpacePendingInvite, OnThisDayMemory, AppNotification } from './types'
 
-function getBaseUrl() {
+export function getBaseUrl() {
   if (Capacitor.isNativePlatform()) {
     return import.meta.env.VITE_API_URL_NATIVE || 'https://your-production-api.com/api'
   }

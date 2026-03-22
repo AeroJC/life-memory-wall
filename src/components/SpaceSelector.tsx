@@ -12,6 +12,7 @@ import {
 } from './SpaceIcons'
 import { validatePassword } from '../utils/validation'
 import { MemorySpace } from '../types'
+import { useSSENotifications } from '../hooks/useSSENotifications'
 
 import ImageCropModal from './ImageCropModal'
 import OnThisDay from './OnThisDay'
@@ -78,12 +79,9 @@ export default function SpaceSelector() {
   const [createdInviteCode, setCreatedInviteCode] = useState<string | null>(null)
   const [viewingSpaceId, setViewingSpaceId] = useState<string | null>(null)
 
-  // Fetch all notification data on mount and poll every 30s
-  useEffect(() => {
-    fetchNotificationSummary()
-    const interval = setInterval(fetchNotificationSummary, 30000)
-    return () => clearInterval(interval)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // SSE handles real-time notification updates; initial fetch on mount for first render
+  useSSENotifications()
+  useEffect(() => { fetchNotificationSummary() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Notification panel state
   const [showNotifications, setShowNotifications] = useState(false)

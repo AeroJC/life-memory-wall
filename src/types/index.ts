@@ -145,6 +145,11 @@ export interface NotificationSummary {
   notifications: AppNotification[]
 }
 
+export interface SSENotificationEvent {
+  type: 'new_notification' | 'invite_update' | 'join_request'
+  notification?: AppNotification
+}
+
 /* ── Canvas Editor types ── */
 
 export interface EditorBlock {
