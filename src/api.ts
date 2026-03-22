@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core'
-import type { User, MemorySpace, Memory, SubStory, PendingInvite, SpacePendingInvite, OnThisDayMemory, AppNotification } from './types'
+import type { User, MemorySpace, Memory, SubStory, PendingInvite, SpacePendingInvite, OnThisDayMemory } from './types'
 
 export function getBaseUrl() {
   if (Capacitor.isNativePlatform()) {
@@ -120,9 +120,6 @@ export const api = {
 
   completeSignup: (userId: string, name: string, password: string) =>
     request<{ user: User; token: string }>('/auth/complete-signup', { method: 'POST', body: JSON.stringify({ userId, name, password }) }),
-
-  getUsers: () =>
-    request<Pick<User, 'id' | 'name' | 'email' | 'avatar'>[]>('/auth/users'),
 
   refreshToken: () =>
     request<{ token: string }>('/auth/refresh', { method: 'POST' }),
@@ -266,12 +263,6 @@ export const api = {
     request<OnThisDayMemory[]>('/on-this-day'),
 
   // Notifications
-  getNotifications: () =>
-    request<AppNotification[]>('/notifications'),
-
-  getUnreadCounts: () =>
-    request<{ total: number; bySpace: Record<string, number> }>('/notifications/unread-count'),
-
   getNotificationSummary: () =>
     request<import('./types').NotificationSummary>('/notifications/summary'),
 

@@ -89,11 +89,6 @@ export function fullUrl(url: string): string {
   return cloudinaryUrl(url, 'q_auto,f_auto')
 }
 
-/** Blur placeholder: tiny blurred version for progressive loading */
-export function blurPlaceholderUrl(url: string): string {
-  return cloudinaryUrl(url, 'w_50,e_blur:1000,q_auto,f_auto')
-}
-
 const VIDEO_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska']
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024 // 100 MB

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cloudinaryUrl, thumbnailUrl, mediumUrl, fullUrl, blurPlaceholderUrl } from '../cloudinary'
+import { cloudinaryUrl, thumbnailUrl, mediumUrl, fullUrl } from '../cloudinary'
 
 const SAMPLE_URL = 'https://res.cloudinary.com/dyxairjq5/image/upload/v1234567890/sample.jpg'
 
@@ -43,13 +43,5 @@ describe('fullUrl', () => {
     expect(result).toContain('q_auto')
     expect(result).toContain('f_auto')
     expect(result).not.toContain('w_')
-  })
-})
-
-describe('blurPlaceholderUrl', () => {
-  it('adds blur and tiny width', () => {
-    const result = blurPlaceholderUrl(SAMPLE_URL)
-    expect(result).toContain('w_50')
-    expect(result).toContain('e_blur:1000')
   })
 })

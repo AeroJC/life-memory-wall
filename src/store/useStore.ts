@@ -61,8 +61,6 @@ interface AppState {
   // Notifications
   notifications: AppNotification[]
   unreadCounts: { total: number; bySpace: Record<string, number> }
-  fetchNotifications: () => Promise<void>
-  fetchUnreadCounts: () => Promise<void>
   fetchNotificationSummary: () => Promise<void>
   markNotificationsRead: (data?: { notificationIds?: string[]; spaceId?: string }) => Promise<void>
   handleSSENotification: (event: SSENotificationEvent) => void
@@ -508,20 +506,6 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // Notifications
-  fetchNotifications: async () => {
-    try {
-      const notifications = await api.getNotifications()
-      set({ notifications })
-    } catch (err) { console.error('Failed to fetch notifications:', err) }
-  },
-
-  fetchUnreadCounts: async () => {
-    try {
-      const unreadCounts = await api.getUnreadCounts()
-      set({ unreadCounts })
-    } catch (err) { console.error('Failed to fetch unread counts:', err) }
-  },
-
   fetchNotificationSummary: async () => {
     try {
       const summary = await api.getNotificationSummary()
@@ -584,15 +568,3 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 }))
-
-// Fine-grained selectors to avoid unnecessary re-renders
-export const useCurrentUser = () => useStore((s) => s.currentUser)
-export const useIsLoggedIn = () => useStore((s) => s.isLoggedIn)
-export const useSpaces = () => useStore((s) => s.spaces)
-export const useActiveSpaceData = () => useStore((s) => s.activeSpaceData)
-export const useActiveSpaceId = () => useStore((s) => s.activeSpaceId)
-export const useLoading = () => useStore((s) => s.loading)
-export const usePendingInvites = () => useStore((s) => s.pendingInvites)
-export const useHasMoreMemories = () => useStore((s) => s.hasMoreMemories)
-export const useLoadingMore = () => useStore((s) => s.loadingMore)
-export const useInitialized = () => useStore((s) => s.initialized)

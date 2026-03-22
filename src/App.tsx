@@ -7,8 +7,6 @@ import { api, setToken, setOnUnauthorized } from './api'
 
 const SpaceSelector = lazy(() => import('./components/SpaceSelector'))
 const Timeline = lazy(() => import('./components/Timeline'))
-const NotificationPreviews = lazy(() => import('./components/NotificationPreviews'))
-const MediaPreviews = lazy(() => import('./components/MediaPreviews'))
 
 const LoadingFallback = () => (
   <div className="min-h-screen gradient-bg flex items-center justify-center">
@@ -142,26 +140,6 @@ export default function App() {
   }
 
   if (!isLoggedIn) return <MobileLayout><LoginPage /></MobileLayout>
-
-  // TEMP: Visit /#previews or /#media-previews to see design options
-  if (window.location.hash === '#previews') {
-    return (
-      <MobileLayout>
-        <Suspense fallback={<LoadingFallback />}>
-          <NotificationPreviews />
-        </Suspense>
-      </MobileLayout>
-    )
-  }
-  if (window.location.hash === '#media-previews') {
-    return (
-      <MobileLayout>
-        <Suspense fallback={<LoadingFallback />}>
-          <MediaPreviews />
-        </Suspense>
-      </MobileLayout>
-    )
-  }
 
   if (activeSpaceId) {
     return (
